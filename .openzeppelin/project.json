@@ -1,6 +1,8 @@
 {
   "manifestVersion": "2.2",
-  "contracts": {},
+  "contracts": {
+    "BlendToken": "BlendToken"
+  },
   "dependencies": {
     "@openzeppelin/contracts-ethereum-package": "^2.4.0"
   },

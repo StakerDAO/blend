@@ -3,9 +3,6 @@
   "contracts": {
     "BlendToken": "BlendToken"
   },
-  "dependencies": {
-    "@openzeppelin/contracts-ethereum-package": "^2.4.0"
-  },
   "name": "staker-blend",
   "version": "0.1.0",
   "compiler": {
@@ -18,5 +15,6 @@
     },
     "solcVersion": "0.5.13"
   },
-  "telemetryOptIn": false
+  "telemetryOptIn": false,
+  "dependencies": {}
 }

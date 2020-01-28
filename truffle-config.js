@@ -18,13 +18,26 @@
  *
  */
 
-// const HDWalletProvider = require('truffle-hdwallet-provider');
+const HDWalletProvider = require('@truffle/hdwallet-provider');
 // const infuraKey = "fj4jll3k.....";
 //
 // const fs = require('fs');
 // const mnemonic = fs.readFileSync(".secret").toString().trim();
 
-const { INFURA_KEY, DEV_MNEMONIC } = process.env
+const { getLedgerProvider } = require('./src/providers/ledger')
+
+function env(variable) {
+  const value = process.env[variable]
+  if (value === undefined) {
+    throw new Error(`${variable} environment variable is not defined`)
+  }
+  return value
+}
+
+function infuraUrl(network) {
+  const projectId = env('INFURA_PROJECT_ID')
+  return `https://${network}.infura.io/v3/${projectId}`
+}
 
 module.exports = {
   /**
@@ -60,16 +73,12 @@ module.exports = {
       // websockets: true        // Enable EventEmitter interface for web3 (default: false)
     // },
 
-    // Useful for deploying to a public network.
-    // NB: It's important to wrap the provider as a function.
-    // ropsten: {
-      // provider: () => new HDWalletProvider(mnemonic, `https://ropsten.infura.io/v3/YOUR-PROJECT-ID`),
-      // network_id: 3,       // Ropsten's id
-      // gas: 5500000,        // Ropsten has a lower block limit than mainnet
-      // confirmations: 2,    // # of confs to wait between deployments. (default: 0)
-      // timeoutBlocks: 200,  // # of blocks before a deployment times out  (minimum/default: 50)
-      // skipDryRun: true     // Skip dry run before migrations? (default: false for public nets )
-    // },
+    goerli: {
+      provider: () => new HDWalletProvider(env('DEV_MNEMONIC'), infuraUrl('goerli')),
+      network_id: 5,
+      gas: 4465030,
+      gasPrice: 2000000000,  // 2 gwei
+    },
 
     // Useful for private networks
     // private: {

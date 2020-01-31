@@ -40,6 +40,9 @@ If you pick `goerli` network, make sure to have all the variables from `.env.exa
 
 You can also provide these arguments via the corresponding command line options if you find this more convenient.
 
+After deployment, you can check the deployed instances using `blend info`.
+This command returns the information about Multisig and BLEND token contracts such as multisig owners and token name along with the addresses of the instances.
+
 ### Upgrades
 
 BLEND contract upgrade is a multi-step process that looks as follows:
@@ -64,3 +67,19 @@ Thus, if you need to upgrade the BLEND token contract, you should do the followi
 3. Ask the owners to call `blend sign tx.json` and send you the results back (`tx.alice.json`, `tx.bob.json`, etc.)
 4. Merge the results you got from multisig owners via `blend merge tx.alice.json tx.bob.json -o tx.signed.json`
 5. Send the signed transaction: `blend submit tx.signed.json`
+
+## Using BLEND token
+
+To use BLEND token, you'll need an ERC-20 compatible wallet.
+
+1. Navigate to your wallet and find "Add custom token" button.
+2. Type in the address, symbol and decimals of the BLEND token (you can find this information with `blend info` command).
+3. Click "Confirm".
+
+See the process for Metamask wallet:
+
+![Add token](./assets/metamask-add-token.gif)
+
+After these steps, you can send BLEND token just like you send Ether or other ERC-20 tokens:
+
+![Send token](./assets/metamask-send-token.gif)

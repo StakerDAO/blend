@@ -1,15 +1,33 @@
 {
-  "name": "staker-blend",
+  "name": "@stakerdao/blend",
   "version": "0.1.0",
   "description": "BLEND token for Staker DAO",
-  "main": "index.js",
+  "main": "src/index.js",
+  "bin": {
+    "blend": "bin/staker-blend"
+  },
+  "private": true,
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@babel/core": "^7.0.0-0",
+    "@ledgerhq/web3-subprovider": "^5.7.1",
+    "@openzeppelin/cli": "^2.6.0",
+    "@openzeppelin/contracts": "^2.4.0",
     "@openzeppelin/contracts-ethereum-package": "^2.4.0",
-    "@openzeppelin/upgrades": "^2.6.0"
+    "@openzeppelin/upgrades": "^2.6.0",
+    "@truffle/hdwallet-provider": "^1.0.29",
+    "@truffle/resolver": "^5.0.27",
+    "@truffle/contract": "^4.0.13",
+    "commander": "^4.0.1",
+    "inquirer-path": "^1.0.0-beta5",
+    "valid-filename": "^3.1.0",
+    "web3": "^1.2.4"
+  },
+  "devDependencies": {
+    "truffle": "^5.1.10"
   }
 }

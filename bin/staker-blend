@@ -1,0 +1,13 @@
+#!/usr/bin/env node
+
+const commands = require('../src/commands')
+const program = require('commander')
+
+async function main() {
+    Object.values(commands).forEach(command => {
+        command.register(program)
+    })
+    await program.parse(process.argv)
+}
+
+main().catch(e => console.error(e))

@@ -57,7 +57,23 @@ module.exports = {
     // tab if you use this network and you must also set the `host`, `port` and `network_id`
     // options below to some value.
     //
+    // Note that the scripts and migrations are configured in such a way that `development`
+    // network is ignored. This is done to extend the capabilities of the test suite – there
+    // we deploy our contracts as needed, providing the dummy owners' addresses instead
+    // of the ones specified in the environment. This is a common practice in case the test
+    // suite needs custom deployments (unfortunately, Truffle does not support such behavior
+    // out-of-the-box).
+    //
     development: {
+      host: "127.0.0.1",     // Localhost (default: none)
+      port: 8545,            // Standard Ethereum port (default: none)
+      network_id: "*",       // Any network (default: none)
+    },
+
+    // Local is the same as development but it is not discarded by scripts. Use `local`
+    // to test the scripts against ganache-cli unless you're running a test suite using
+    // `truffle test`.
+    local: {
       host: "127.0.0.1",     // Localhost (default: none)
       port: 8545,            // Standard Ethereum port (default: none)
       network_id: "*",       // Any network (default: none)

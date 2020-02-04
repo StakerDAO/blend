@@ -19,7 +19,7 @@ Clone the repository and run `npm install -g` to make the `blend` command availa
 ### Prerequisites
 
 The package provides a command line interface to deploy and upgrade the BLEND token.
-For convenience, some preset Ethereum network options are provided in Truffle configuration file: `truffle-config.js`. Currently, it contains configurations for local (`development`) and public (`goerly`) test networks. The configuration uses [Infura RPC](https://infura.io) to access public Ethereum networks.
+For convenience, some preset Ethereum network options are provided in Truffle configuration file: `truffle-config.js`. Currently, it contains configurations for local (`local`) and public (`goerly`) test networks. The configuration uses [Infura RPC](https://infura.io) to access public Ethereum networks.
 
 To run against the local development network, you must have `ganache-cli` installed (`npm i -g ganache-cli`). To work with public networks, you must supply the required environment variables, as specified in `.env.example`.
 
@@ -35,7 +35,7 @@ You will be asked for additional parameters in an interactive manner:
 - `minter` – the address that would hold BLEND tokens initially
 - `supply` – the initial supply that would be debited to `minter`
 
-If you pick a `development` network, make sure you have `ganache-cli` running in the background.
+If you pick a `local` network, make sure you have `ganache-cli` running in the background.
 If you pick `goerli` network, make sure to have all the variables from `.env.example` in your environment.
 
 You can also provide these arguments via the corresponding command line options if you find this more convenient.

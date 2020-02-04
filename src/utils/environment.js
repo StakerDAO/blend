@@ -31,7 +31,7 @@ class BlendEnvironment {
             console.log(
                 `The CLI was unable to find the address of the "${name}" ` +
                 `contract on "${ this.network }" network. Make sure to run ` +
-                `\`truffle migrate\` to deploy the "${name}" contract.\n`
+                `\`blend deploy\` to deploy the "${name}" contract.\n`
             )
             throw err
         }
@@ -65,7 +65,12 @@ async function loadProjectEnv({ network, from }) {
 }
 
 function getNetworks() {
-    return oz.ConfigManager.getNetworkNamesFromConfig()
+    // Here we ignore `development` network because it is intended to be
+    // used with `truffle test` only. The users are supposed to use `local`
+    // to test the scripts against `ganache-cli`.
+    return oz.ConfigManager.getNetworkNamesFromConfig().filter(
+        network => network !== 'development'
+    )
 }
 
 module.exports = {

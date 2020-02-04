@@ -2,6 +2,7 @@ const isRevert = error => {
     const REVERT_MSGS = [
         'Returned error: VM Exception while processing transaction: revert',
         'Returned error: execution error: revert',
+        'Returned error: VM Exception while processing transaction: invalid opcode'
     ]
     return REVERT_MSGS.some(msg => error.message.startsWith(msg))
 }

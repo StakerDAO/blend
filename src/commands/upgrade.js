@@ -36,14 +36,13 @@ function mkQuestions() {
 
 async function upgrade(options) {
     const blendEnv = await promptAndLoadEnv({networkInOpts: options.network})
-    console.log(blendEnv.from)
     const args = await promptIfNeeded(options, mkQuestions())
     console.log('Publishing the new implementation')
     const nextImpl = await pushNextVersion(blendEnv)
     console.log(nextImpl)
     const blend = await blendEnv.getContract('BlendToken')
     const proxy = new blendEnv.web3.eth.Contract(ProxyAbi, blend.address)
-    const from = blendEnv.ozOptions.txParams.from
+    const from = blendEnv.from
     console.log('From: ', from)
     const tx = proxy.methods.upgradeTo(nextImpl).encodeABI({ from: from })
     console.log('Tx: ', tx)

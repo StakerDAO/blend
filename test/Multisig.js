@@ -1,77 +1,78 @@
-const Eth = require('web3-eth')
-const Utils = require('web3-utils')
-const Multisig = artifacts.require('Multisig')
-const Consumer = artifacts.require('Consumer')
+const { accounts, contract, web3 } = require('@openzeppelin/test-environment')
+const assert = require('assert')
+const Multisig = contract.fromArtifact('Multisig')
+const Consumer = contract.fromArtifact('Consumer')
 const {
     ignoreRevert, assertRevert, fixSignature, expectConsumerStorage
 } = require('./helpers')
-
-
-const eth = new Eth(Eth.givenProvider)
 
 const caseInsensitiveCompare = (lhs, rhs) => {
     return lhs.localeCompare(rhs, 'en', {sensitivity: 'base'})
 }
 
-const msigCall = async ({msig, value, targetContract, data, nonce, signers}, rewrites) => {
-    const hashToSign = Utils.soliditySha3(
+function signaturesToList(signatures) {
+    return Object.keys(signatures)
+                .sort(caseInsensitiveCompare)
+                .map(addr => fixSignature(signatures[addr]))
+}
+
+async function signHash(txHash, signers) {
+    return signers.reduce(async (signatures, addr) => {
+        return {
+            [addr]: await web3.eth.sign(txHash, addr),
+            ...await signatures
+        }
+    }, {})
+}
+
+async function signRotateKeysTx(tx, signers) {
+    const txHash = web3.utils.soliditySha3(
         {type: 'uint8', value: '0x19'},
         {type: 'uint8', value: '0x00'},
-        {type: 'address', value: rewrites.sigAddress || msig.address},
-        {type: 'address', value: rewrites.sigTargetContract || targetContract},
-        {type: 'uint256', value: rewrites.sigValue || value},
-        {type: 'bytes', value: rewrites.sigData || data},
-        {type: 'uint', value: rewrites.sigNonce || nonce}
+        {type: 'address', value: tx.msigAddress},
+        {type: 'address[]', value: tx.newOwners},
+        {type: 'uint256', value: tx.threshold},
+        {type: 'uint', value: tx.nonce}
     )
+    return await signHash(txHash, signers)
+}
 
-    let signatures = await Promise.all(
-        [...signers]
-            .sort(caseInsensitiveCompare)
-            .map(async addr => {
-                return fixSignature(await eth.sign(hashToSign, addr))
-            })
-    )
-    if (rewrites.corruptSignatures) {
-        signatures = rewrites.corruptSignatures(signatures)
-    }
-
-
-    const execParams = [
-        rewrites.txTargetContract || targetContract,
-        rewrites.txValue || value,
-        rewrites.txData || data,
-        signatures
-    ]
-
-    const defaultGas = 1000000
-    // We still want failed transactions to be recorded on chain for
-    // debug purposes, so we ignore any failures that may occur at
-    // this stage and just substitute the default value.
-    const gas = await ignoreRevert(
-        msig.execute.estimateGas(
-            ...execParams, { from: signers[0] }
-        )
-    ) || defaultGas
-    await msig.execute.sendTransaction(
-        ...execParams, { from: signers[0], gas: gas }
+async function rotateKeys(tx, signaturesList, from) {
+    return await tx.msig.rotateKeys.sendTransaction(
+        tx.newOwners,
+        tx.threshold,
+        signaturesList,
+        { from, gas: 1000000 }
     )
 }
 
-const msigRotateKeys = ({msig, newOwners, newThreshold, nonce, signers}, rewrites) => {
-    const hashToSign = Utils.soliditySha3(
+async function signExecuteTx(tx, signers) {
+    const txHash = web3.utils.soliditySha3(
         {type: 'uint8', value: '0x19'},
         {type: 'uint8', value: '0x00'},
-        {type: 'address', value: rewrites.sigAddress || msig.address},
-        {type: 'address[]', value: rewrites.sigNewOwners || newOwners},
-        {type: 'uint', value: rewrites.sigNewThreshold || newThreshold},
-        {type: 'uint', value: rewrites.sigNonce || nonce}
+        {type: 'address', value: tx.msigAddress},
+        {type: 'address', value: tx.targetContract},
+        {type: 'uint256', value: tx.value},
+        {type: 'bytes', value: tx.data},
+        {type: 'uint', value: tx.nonce}
+    )
+    return await signHash(txHash, signers)
+}
+
+async function msigExecute(tx, signaturesList, from) {
+    return await tx.msig.execute.sendTransaction(
+        tx.targetContract,
+        tx.value,
+        tx.data,
+        signaturesList,
+        { from, gas: 1000000 }
     )
 }
 
-const splitAccounts = accounts => {
+function splitAccounts() {
     assert(
         accounts.length >= 9,
-        "Running multisig tests require at least 9 active accounts"
+        'Running multisig tests require at least 9 active accounts'
     )
 
     const a = accounts.slice(0, 9).sort(caseInsensitiveCompare)
@@ -85,159 +86,262 @@ const splitAccounts = accounts => {
     }
 }
 
-contract('Multisig', accounts => {
+describe('Multisig', function() {
     // We want to test evil keys at different positions but since the signers
     // are sorted before calling multisig, we need evil keys to be in different
     // positions _lexicographically_. We first fetch the evil keys, and then
     // use the remaining ones as multisig owners/newOwners.
-    const { evils, owners, newOwners } = splitAccounts(accounts)
+    const { evils, owners, newOwners } = splitAccounts()
+    const from = accounts[0]
 
-    beforeEach(async () => {
-        this.msig = await Multisig.new(owners, 2)
-        this.consumer = await Consumer.new()
-    })
+    describe('rotateKeys', async function() {
+        const context = {}
 
-    describe('rotateKeys', async () => {
-        const callRotateKeysWithMultisig = async (msig, signers, newOwners, rewrites) => {
+        beforeEach(async function() {
+            context.msig = await Multisig.new(owners, 2, { from })
+        })
 
+        function getValidTx(context) {
+            return {
+                msig: context.msig,
+                msigAddress: context.msig.address,
+                newOwners,
+                threshold: 2,
+                nonce: 0,
+            }
         }
+
+        failuresSpec.call(this, context, {
+            makeTx: getValidTx,
+            signTx: signRotateKeysTx,
+            execTx: rotateKeys,
+        })
+
+        it('changes owner set if everything is correct', async () => {
+            const tx = getValidTx(context)
+            const signatures = await signRotateKeysTx(tx, owners)
+            await rotateKeys(tx, signaturesToList(signatures), from)
+            // Check that each owner from `newOwners` is listed and is in
+            // the correct position:
+            for (let i = 0; i < newOwners.length; ++i) {
+                const owner = await context.msig.owners.call(i)
+                assert.equal(
+                    owner,
+                    newOwners[i],
+                    `Expected owner ${i} to be ${newOwners[i]} but got ${owner}`
+                )
+            }
+            // Check that there are no more owners except `newOwners`:
+            await assertRevert(
+                context.msig.owners.call(newOwners.length)
+            )
+        })
     })
 
     describe('call', async () => {
-        const callConsumerWithMultisig = async (msig, consumer, signers, rewrites) => {
-            const consumerParam =
-                consumer.contract.methods.updateData(
-                    '0x0123456789abcdeffedcba', '0x2019deadbeef2020',
-                    123456789, "Hello world"
-                ).encodeABI()
+        const context = {}
 
-            const params = {
-                msig: msig,
-                value: '0',
-                targetContract: consumer.address,
-                data: consumerParam,
-                nonce: 0,
-                signers: signers
+        beforeEach(async function() {
+            context.msig = await Multisig.new(owners, 2, { from })
+            context.consumer = await Consumer.new({ from })
+            const cp = {
+                lastFixedBytes: '0x0123456789abcdeffedcba',
+                lastVarBytes: '0x2019deadbeef2020',
+                lastUint: 123456789,
+                lastString: 'Hello world'
             }
-            return await msigCall(params, rewrites || {})
-        }
-
-        it('makes a requested call if everything is correct', async () => {
-            await callConsumerWithMultisig(this.msig, this.consumer, owners)
-            await expectConsumerStorage(
-                this.consumer,
-                {
-                    lastFixedBytes: '0x0123456789abcdeffedcba',
-                    lastVarBytes: '0x2019deadbeef2020',
-                    lastUint: 123456789,
-                    lastString: "Hello world"
-                }
-            )
+            context.updateDataTxEncoded =
+                context.consumer.contract.methods.updateData(
+                    cp.lastFixedBytes, cp.lastVarBytes,
+                    cp.lastUint, cp.lastString
+                ).encodeABI()
+            context.expectedConsumerStorage = cp
         })
 
-        it('fails if nonce is incorrect', async () => {
-            await assertRevert(
-                callConsumerWithMultisig(
-                    this.msig, this.consumer, owners,
-                    { sigNonce: 1 }
-                ),
-                "Invalid signature"
-            )
+        function getValidTx(context) {
+            return {
+                msig: context.msig,
+                msigAddress: context.msig.address,
+                value: '0',
+                targetContract: context.consumer.address,
+                data: context.updateDataTxEncoded,
+                nonce: 0,
+            }
+        }
+
+        failuresSpec.call(this, context, {
+            makeTx: getValidTx,
+            signTx: signExecuteTx,
+            execTx: msigExecute,
         })
 
         it('fails if target contract is incorrect (in signature)', async () => {
+            const tx = getValidTx(context)
+            const sigTx = { ...tx, targetContract: evils[0] }
+            const signatures = await signExecuteTx(sigTx, owners)
             await assertRevert(
-                callConsumerWithMultisig(
-                    this.msig, this.consumer, owners,
-                    { sigTargetContract: evils[0] }
-                ),
-                "Invalid signature"
+                msigExecute(tx, signaturesToList(signatures), from),
+                'Invalid signature'
             )
         })
 
-        it('fails if signed by a non-owner (start pos)', async () => {
-            const signers = [evils[0], ...owners.slice(1)]
-            await assertRevert(
-                callConsumerWithMultisig(this.msig, this.consumer, signers),
-                "Invalid signature"
-            )
-        })
-
-        it('fails if signed by a non-owner (middle pos)', async () => {
-            const signers = [evils[1], ...owners.slice(1)]
-            await assertRevert(
-                callConsumerWithMultisig(this.msig, this.consumer, signers),
-                "Invalid signature"
-            )
-        })
-
-        it('fails if signed by a non-owner (end pos)', async () => {
-            const signers = [evils[2], ...owners.slice(1)]
-            await assertRevert(
-                callConsumerWithMultisig(this.msig, this.consumer, signers),
-                "Invalid signature"
-            )
-        })
-
-        it('fails if signature is corrupted (start pos)', async () => {
-            const corruptFirst = signatures => {
-                return ['0x00', ...signatures.slice(1)]
-            }
-            await assertRevert(
-                callConsumerWithMultisig(
-                    this.msig, this.consumer, owners,
-                    { corruptSignatures: corruptFirst }
-                ),
-                "Invalid signature"
-            )
-        })
-
-        it('fails if signature is corrupted (middle pos)', async () => {
-            const corruptMiddle = signatures => {
-                const middle = signatures.length / 2
-                const start = signatures.slice(0, middle)
-                const rest = signatures.slice(middle + 1)
-                return [...start, '0x00', ...rest]
-            }
-            await assertRevert(
-                callConsumerWithMultisig(
-                    this.msig, this.consumer, owners,
-                    { corruptSignatures: corruptMiddle }
-                ),
-                "Invalid signature"
-            )
-        })
-
-        it('fails if signature is corrupted (end pos)', async () => {
-            const corruptLast = signatures => {
-                return [...signatures.slice(0, -1), '0x00']
-            }
-            await assertRevert(
-                callConsumerWithMultisig(
-                    this.msig, this.consumer, owners,
-                    { corruptSignatures: corruptLast }
-                ),
-                "Invalid signature"
+        it('makes a requested call if everything is correct', async () => {
+            const tx = getValidTx(context)
+            const signatures = await signExecuteTx(tx, owners)
+            await msigExecute(tx, signaturesToList(signatures), from),
+            await expectConsumerStorage(
+                context.consumer,
+                context.expectedConsumerStorage
             )
         })
     })
 
-    describe('isOwner', async () => {
-        it('should return true for all owners', async () => {
+    describe('isOwner', async function() {
+        const context = {}
+
+        beforeEach(async function() {
+            context.msig = await Multisig.new(owners, 2, { from })
+        })
+
+        it('should return true for all owners', async function() {
             for (let owner of owners) {
                 assert.equal(
-                    await this.msig.isOwner.call(owner), true,
+                    await context.msig.isOwner.call(owner), true,
                     `Multisig owner ${owner} is non-owner`
                 )
             }
         })
-        it('should return false for non-owners', async () => {
+        it('should return false for non-owners', async function() {
             for (let evil of evils) {
                 assert.equal(
-                    await this.msig.isOwner.call(evil), false,
+                    await context.msig.isOwner.call(evil), false,
                     `Multisig non-owner ${evil} is owner`
                 )
             }
         })
     })
+
+    function failuresSpec(context, { makeTx, signTx, execTx }) {
+        it('fails if multisig address is incorrect', async function() {
+            const tx = { ...makeTx(context), msigAddress: evils[0] }
+            const signatures = await signTx(tx, owners)
+            await assertRevert(
+                execTx(tx, signaturesToList(signatures), from),
+                'Invalid signature'
+            )
+        })
+
+        it('fails if msig address is incorrect (in signature)', async function() {
+            const tx = makeTx(context)
+            const sigTx = { ...tx, msigAddress: evils[0] }
+            const signatures = await signTx(sigTx, owners)
+            await assertRevert(
+                execTx(tx, signaturesToList(signatures), from),
+                'Invalid signature'
+            )
+        })
+
+        it('fails if nonce is incorrect', async function() {
+            const tx = { ...makeTx(context), nonce: 1 }
+            const signatures = await signTx(tx, owners)
+            await assertRevert(
+                execTx(tx, signaturesToList(signatures), from),
+                'Invalid signature'
+            )
+        })
+
+        it('fails if signed by a non-owner (start pos)', async function() {
+            const tx = makeTx(context)
+            const signers = [evils[0], ...owners.slice(1)]
+            const signatures = await signTx(tx, signers)
+            await assertRevert(
+                execTx(tx, signaturesToList(signatures), from),
+                'Invalid signature'
+            )
+        })
+
+        it('fails if signed by a non-owner (middle pos)', async function() {
+            const tx = makeTx(context)
+            const signers = [evils[1], ...owners.slice(1)]
+            const signatures = await signTx(tx, signers)
+            await assertRevert(
+                execTx(tx, signaturesToList(signatures), from),
+                'Invalid signature'
+            )
+        })
+
+        it('fails if signed by a non-owner (end pos)', async function() {
+            const tx = makeTx(context)
+            const signers = [evils[2], ...owners.slice(1)]
+            const signatures = await signTx(tx, signers)
+            await assertRevert(
+                execTx(tx, signaturesToList(signatures), from),
+                'Invalid signature'
+            )
+        })
+
+        it('fails if same key signs twice (start pos)', async function() {
+            const tx = makeTx(context)
+            const signaturesList = signaturesToList(await signTx(tx, owners))
+            signaturesList[1] = signaturesList[0]
+            await assertRevert(
+                execTx(tx, signaturesList, from),
+                'The addresses must be provided in the ascending order'
+            )
+        })
+
+        it('fails if same key signs twice (middle pos)', async function() {
+            const tx = makeTx(context)
+            const signaturesList = signaturesToList(await signTx(tx, owners))
+            const middle = Math.floor(signaturesList.length / 2)
+            signaturesList[middle + 1] = signaturesList[middle]
+            await assertRevert(
+                execTx(tx, signaturesList, from),
+                'The addresses must be provided in the ascending order'
+            )
+        })
+
+        it('fails if same key signs twice (last pos)', async function() {
+            const tx = makeTx(context)
+            const signaturesList = signaturesToList(await signTx(tx, owners))
+            const last = signaturesList.length - 1
+            signaturesList[last - 1] = signaturesList[last]
+            await assertRevert(
+                execTx(tx, signaturesList, from),
+                'The addresses must be provided in the ascending order'
+            )
+        })
+
+        it('fails if signature is corrupted (start pos)', async function() {
+            const tx = makeTx(context)
+            const signaturesList = signaturesToList(await signTx(tx, owners))
+            signaturesList[0] = '0x00'
+            await assertRevert(
+                execTx(tx, signaturesList, from),
+                'Invalid signature'
+            )
+        })
+
+        it('fails if signature is corrupted (middle pos)', async function() {
+            const tx = makeTx(context)
+            const signaturesList = signaturesToList(await signTx(tx, owners))
+            const middle = Math.floor(signaturesList.length / 2)
+            signaturesList[middle] = '0x00'
+            await assertRevert(
+                execTx(tx, signaturesList, from),
+                'Invalid signature'
+            )
+        })
+
+        it('fails if signature is corrupted (end pos)', async function() {
+            const tx = makeTx(context)
+            const signaturesList = signaturesToList(await signTx(tx, owners))
+            const last = signaturesList.length - 1
+            signaturesList[last] = '0x00'
+            await assertRevert(
+                execTx(tx, signaturesList, from),
+                'Invalid signature'
+            )
+        })
+    }
 })

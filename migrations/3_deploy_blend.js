@@ -32,9 +32,9 @@ async function deployBlend(msigAddress, networkName, accounts) {
     })
 }
 
-module.exports = function(deployer, networkName, accounts) {
+module.exports = function(deployer, network, accounts) {
     deployer.then(async () => {
         const msig = await Multisig.deployed()
-        await deployBlend(msig.address, networkName, accounts)
+        await deployBlend(msig.address, network, accounts)
     })
 }

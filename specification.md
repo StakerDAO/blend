@@ -13,31 +13,26 @@ Methods:
 1. `transfer(address to, unit256 amount) -> bool`
    - **Behavior:**
       - transfers tokens (possibly to a tender address)
-      - if `registry.isTenderAddress(to)`, ensure that `registry.getWallet(to) == sender`
+      - if `registry.isTenderAddress(to)`, then `registry.recordTransfer(sender, to, amount)`
    - **Access:** anyone
    - **Exceptions:**
       - Not enough tokens
-      - Transfer to a tender address associated with a different wallet
 2. `transferFrom(address from, address to, uint256 amount) -> bool`
    - **Behavior:**
       - transfers tokens (possibly to a tender address)
-      - if `registry.isTenderAddress(to)`, ensure that `registry.getWallet(to) == from`
+      - if `registry.isTenderAddress(to)`, then `registry.recordTransfer(from, to, amount)`
    - **Access:** anyone
    - **Exceptions:**
       - Not enough tokens
       - Not enough allowance
-      - Transfer to a tender address associated with a different wallet
-3. `lockup(uint256 amount)`
+3. `unlock(address tenderAddress, uint256 amount)`:
    - **Behavior:**
-      - transfers tokens to the tender address, i.e. to `registry.getTenderAddress(sender)`
-   - **Access:** anyone
-   - **Exceptions:**
-      - Not enough tokens to lock
-4. `unlock(uint256 amount)`:
-   - **Behavior:**
-      - IF there are enough tokens on `registry.getTenderAddress(sender)` balance,
+      - IF `amount <= registry.getLockedAmount(tenderAddress, sender)`,
+      - AND `amount <= balanceOf(tenderAddress)`
       - AND the current phase does not prohibit unlocks,
-      - THEN transfeer `amount` of tokens from `registry.getTenderAddress(sender)` to `sender`.
+      - THEN:
+         - transfer `amount` of tokens from `tenderAddress` to `sender`
+         - `registry.recordUnlock(tenderAddress, sender, amount)`
    - **Access:** anyone
    - **Exceptions:**
       - Unlocks are prohibited
@@ -62,7 +57,8 @@ Methods:
    - **Behavior:**
       - IF at the distribution phase,
       - AND the address is a registered tender address (i.e. `registry.isTenderAddress(tenderAddress) == true`)
-      - THEN burns `amount` of tokens from `tenderAddress`.
+      - AND there are enough tokens to burn
+      - THEN burns `amount` of tokens from `tenderAddress`
    - **Access:** only `orhestrator`
    - **Exceptions:**
       - Burning tokens is prohibited at this stage
@@ -88,9 +84,10 @@ The contract is upgradeable.
 The contract has an owner. The owner can be updated via a two-step updating approach (`setOwner` + `acceptOwnership`).
 
 Storage:
-* `mapping (address => address) _tenderAddresses` – wallet to tender address relation
-* `mapping (address => address) _holders` – tender address to wallet relation
+* `mapping (address => bool) _tenderAddresses` – whether some address is a registered tender address
+* `mapping (address => mapping (address => uint256)) _balances` – tenderAddress to source wallet to balance relation
 * `address registryBackend`
+* `address blend`
 
 Methods:
 1. `setRegistryBackend(address newBackend)`
@@ -99,35 +96,47 @@ Methods:
    - **Access:** only **owner**
    - **Exceptions:**
       - Unauthorized
+1. `setBlendToken(address newBlend)`
+   - **Behavior:**
+      - `blend = newBlend`
+   - **Access:** only **owner**
+   - **Exceptions:**
+      - Unauthorized
 2. `isTenderAddress(address tenderAddress) -> bool`
    - **Behavior:** Returns whether `tenderAddress` is a registered tender address.
    - **Access:** anyone
    - **Exceptions:** none
-3. `getTenderAddress(address holder) -> address`
-   - **Behavior:** Returns the tender address associated with the particular wallet.
+3. `getLockedAmount(tenderAddress, wallet) -> uint256`
+   - **Behavior:** Returns `_balances[tenderAddress][wallet]`.
    - **Access:** anyone
-   - **Exceptions:**
-      - Holder does not have a registered tender address
-4. `getWallet(address tenderAddress) -> address`
-   - **Behavior:** Returns the wallet associated with the tender address.
-   - **Access:** anyone
+   - **Exceptions:** none
+3. `recordTransfer(address from, address tenderAddress, uint256 amount)`
+   - **Behavior:**
+      - `_balances[tenderAddress][from] += amount` (with SafeMath)
+   - **Access:** only `blend`
    - **Exceptions:**
       - Tender address is not registered
-5. `registerTenderAddress(address holder, address tenderAddress)`
+4. `recordUnlock(address tenderAddress, address to, uint256 amount)`
    - **Behavior:**
-      - IF `tenderAddress` is not a key in `_holders`,
-      - AND `holder` is not a key in `_tenderAddresses`
-      - THEN:
-        1. `_holders[tenderAddress] = holder`
-        2. `_tenderAddresses[holder] = tenderAddress`
+      - IF `_balances[tenderAddress][to] >= amount`
+      - THEN `_balances[tenderAddress][to] -= amount` (with SafeMath)
+      - ELSE fail with not enough balance
+   - **Access:** only `blend`
+   - **Exceptions:**
+      - Tender address is not registered
+      - Not enough balance
+5. `registerTenderAddress(address tenderAddress)`
+   - **Behavior:**
+      - IF `_tenderAddresses[tenderAddress] == false`
+      - THEN: `_tenderAddresses[tenderAddress] = true`
+      - ELSE: fail with Tender address is already registered
    - **Access:** only **Registry backend**
    - **Exceptions:**
       - Tender address is already registered
-      - Holder already has a tender address
       - Unauthorized
 
 ## Orchestrator
-The contract is upgradeable.
+The contract is **not** upgradeable.
 
 The contract has an owner. The owner can be updated via a two-step updating approach (`setOwner` + `acceptOwnership`).
 
@@ -135,6 +144,7 @@ Types:
 ```cpp
 struct Order {
     address redeemerTenderAddress;
+    address redeemerWallet;
     uint256 price;
     uint256 amount;
 }
@@ -145,6 +155,7 @@ Storage:
 * `public address blend`
 * `public address registry`
 * `public address distributionBackend`
+* `private address _usdcPool`
 
 Methods:
 1. `setDistributionBackend(address newBackend)`
@@ -153,19 +164,25 @@ Methods:
    - **Access:** only **owner**
    - **Exceptions:**
       - Unauthorized
-2. `startDistribution()`
+2. `setUsdcPool(address pool)`
+   - **Behavior:**
+      - `_usdcPool = pool`
+   - **Access:** only **owner**
+   - **Exceptions:**
+      - Unauthorized
+3. `startDistribution()`
    - **Behavior:**
       - `blend.startDistributionPhase()`
    - **Access:** only **Distribution backend**
    - **Exceptions:**
       - Unauthorized
-3. `stopDistribution()`
+4. `stopDistribution()`
    - **Behavior:**
       - `blend.stopDistributionPhase()`
    - **Access:** only **Distribution backend**
    - **Exceptions:**
       - Unauthorized
-4. `executeOrders(Order[] orders)`
+5. `executeOrders(Order[] orders)`
    - **Behavior:**
       - Sort orders from low to high price
       - WHILE
@@ -176,9 +193,9 @@ Methods:
    - **Access:** only **Distribution backend**
    - **Exceptions:**
       - Unauthorized
-
-5. (internal) `_executeOrder(Order order)`
+6. (internal) `_executeOrder(Order order)`
    - **Behavior:**
+      - IF `registry.isTenderAddress(order.redeemerTenderAddress) == false` THEN fail
       - Adjust amounts based on funds left:
          - If there are enough funds to execute the order in full:
             - `usdcAmount = order.amount * order.price`
@@ -186,11 +203,11 @@ Methods:
          - If the order can only be executed partially because there is not enough USDC or USDC allowance:
             - `usdcAmount = min(<usdc left>, <allowance left>)`
             - `blendAmount = ceiling(usdcAmount / order.price)`
-         - If the order can only be executed partially because there is not enough BLND, fail (because this should never happen).
-      - `usdc.transferFrom(usdcPool, registry.getWallet(order.redeemerTenderAddress), usdcAmount)`
+         - If the order can only be executed partially because there is not enough BLND:
+            - `blendAmount = <blend left>`
+            - `usdcAmount = blendAmount * order.price`
+      - `usdc.transferFrom(_usdcPool, order.redeemerWallet, usdcAmount)`
       - `blend.burn(order.redeemerTenderAddress, blendAmount)`
    - **Access:** internal
    - **Exceptions:**
       - Tender address is not registered
-      - Not enough USDC (or USDC allowance)
-      - Not enough BLND

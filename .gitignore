@@ -1,11 +1,8 @@
-*.swp
-*.swo
 node_modules
 npm-debug.log
 .env
 build/
-.DS_Store
-.openzeppelin/.session
-.idea
 contracts/build/
 
+.openzeppelin/*
+!.openzeppelin/project.json

@@ -1,7 +1,8 @@
 {
   "manifestVersion": "2.2",
   "contracts": {
-    "BlendToken": "BlendToken"
+    "BlendToken": "BlendToken",
+    "Registry": "Registry"
   },
   "name": "staker-blend",
   "version": "0.1.0",
@@ -13,7 +14,12 @@
         "runs": "200"
       }
     },
-    "solcVersion": "0.5.13"
+    "solcVersion": "0.5.13",
+    "artifactsDir": "build/contracts",
+    "contractsDir": "contracts",
+    "typechain": {
+      "enabled": false
+    }
   },
   "telemetryOptIn": false,
   "dependencies": {}

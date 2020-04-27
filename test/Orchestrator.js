@@ -2,6 +2,7 @@ const { accounts, contract, web3 } = require('@openzeppelin/test-environment')
 const { expectRevert, BN, constants } = require('@openzeppelin/test-helpers')
 const { expect } = require('chai').use(require('chai-bn')(BN))
 const { toBN } = web3.utils
+const { priceToBN } = require('./common/price')
 const BlendToken = contract.fromArtifact('BlendToken')
 const Orchestrator = contract.fromArtifact('Orchestrator')
 const Registry = contract.fromArtifact('Registry')
@@ -105,11 +106,6 @@ describe('Orchestrator', async function() {
     })
 
     describe('distribution', async function() {
-        function scalePrice(price, decimals = '4') {
-            const scaleFactor = toBN('10').pow(toBN(decimals))
-            return toBN(price).mul(scaleFactor)
-        }
-
         beforeEach(async function() {
             await ctx.registry.registerTenderAddress(tenderAddress, {from: registryBackend})
             await ctx.blend.transfer(tenderAddress, toBN('100'), {from: alice})
@@ -122,7 +118,7 @@ describe('Orchestrator', async function() {
                 {
                     redeemerTenderAddress: tenderAddress,
                     redeemerWallet: alice,
-                    price: scalePrice(2, 4).toString(),
+                    price: priceToBN('2').toString(),
                     amount: 100
                 }
             ]
@@ -138,7 +134,7 @@ describe('Orchestrator', async function() {
                 {
                     redeemerTenderAddress: tenderAddress,
                     redeemerWallet: alice,
-                    price: scalePrice(100, 4).toString(),
+                    price: priceToBN('100').toString(),
                     amount: 100
                 }
             ]
@@ -154,7 +150,7 @@ describe('Orchestrator', async function() {
                 {
                     redeemerTenderAddress: tenderAddress,
                     redeemerWallet: alice,
-                    price: scalePrice(1000, 0).toString(),
+                    price: priceToBN('0.1').toString(),
                     amount: 150
                 }
             ]
@@ -170,7 +166,7 @@ describe('Orchestrator', async function() {
                 {
                     redeemerTenderAddress: tenderAddress,
                     redeemerWallet: alice,
-                    price: scalePrice(333, 4).toString(),
+                    price: priceToBN('333').toString(),
                     amount: 150
                 }
             ]
@@ -187,19 +183,19 @@ describe('Orchestrator', async function() {
                 {
                     redeemerTenderAddress: tenderAddress,
                     redeemerWallet: alice,
-                    price: scalePrice(2, 4).toString(),
+                    price: priceToBN('2').toString(),
                     amount: 50
                 },
                 {
                     redeemerTenderAddress: tenderAddress,
                     redeemerWallet: alice,
-                    price: scalePrice(100, 4).toString(),
+                    price: priceToBN('100').toString(),
                     amount: 100
                 },
                 {
                     redeemerTenderAddress: tenderAddress,
                     redeemerWallet: alice,
-                    price: scalePrice(100, 4).toString(),
+                    price: priceToBN('100').toString(),
                     amount: 100
                 }
             ]

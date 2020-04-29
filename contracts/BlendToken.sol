@@ -89,6 +89,11 @@ contract BlendToken is Initializable, Ownable, ERC20, ERC20Detailed {
         distributionPhase = false;
     }
 
+    /// @notice Burns tokens from the tender address and sends the fees
+    ///         to the Orchestrator. Notifies the registry that the burn
+    ///         has occurred; the fees are computed by the registry.
+    /// @param tenderAddress Tender address to burn from
+    /// @param amount Amount to burn
     function burn(address tenderAddress, uint256 amount)
         public
         onlyOrchestrator
@@ -98,13 +103,17 @@ contract BlendToken is Initializable, Ownable, ERC20, ERC20Detailed {
             "Burn is allowed only at distribution phase"
         );
         require(
-            amount <= balanceOf(tenderAddress),
-            "Insufficient balance"
-        );
-        require(
             registry.isTenderAddress(tenderAddress),
             "Burning from regular addresses is not allowed"
         );
+        // registry.dispatchBurn would simultaneously compute fees
+        // and cleanup the tender address senders list. Ideally, we
+        // would want to do it in two steps (compute the fees, and
+        // then cleanup the senders) but it would be costlier in
+        // a happy scenario.
+        uint256 fee = registry.dispatchBurn(tenderAddress, amount);
+
         _burn(tenderAddress, amount);
+        _transfer(tenderAddress, orchestrator, fee);
     }
 }

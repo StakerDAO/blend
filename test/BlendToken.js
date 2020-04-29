@@ -215,7 +215,7 @@ describe('BlendToken', async function() {
                 ctx.blend.burn(
                     tenderAddress, toBN('150'), { from: orchestrator }
                 ),
-                'Insufficient balance'
+                'Not enough balance on tender address'
             )
         })
 

@@ -1,10 +1,11 @@
 const { accounts, contract, web3 } = require('@openzeppelin/test-environment')
+const { expectRevert, BN, constants } = require('@openzeppelin/test-helpers')
 const assert = require('assert')
 const Multisig = contract.fromArtifact('Multisig')
 const Consumer = contract.fromArtifact('Consumer')
 const {
-    ignoreRevert, assertRevert, fixSignature, expectConsumerStorage
-} = require('./helpers')
+    fixSignature, expectConsumerStorage
+} = require('./common/helpers')
 
 const caseInsensitiveCompare = (lhs, rhs) => {
     return lhs.localeCompare(rhs, 'en', {sensitivity: 'base'})
@@ -132,8 +133,9 @@ describe('Multisig', function() {
                 )
             }
             // Check that there are no more owners except `newOwners`:
-            await assertRevert(
-                context.msig.owners.call(newOwners.length)
+            await expectRevert(
+                context.msig.owners.call(newOwners.length),
+                'invalid opcode'
             )
         })
     })
@@ -179,7 +181,7 @@ describe('Multisig', function() {
             const tx = getValidTx(context)
             const sigTx = { ...tx, targetContract: evils[0] }
             const signatures = await signExecuteTx(sigTx, owners)
-            await assertRevert(
+            await expectRevert(
                 msigExecute(tx, signaturesToList(signatures), from),
                 'Invalid signature'
             )
@@ -225,7 +227,7 @@ describe('Multisig', function() {
         it('fails if multisig address is incorrect', async function() {
             const tx = { ...makeTx(context), msigAddress: evils[0] }
             const signatures = await signTx(tx, owners)
-            await assertRevert(
+            await expectRevert(
                 execTx(tx, signaturesToList(signatures), from),
                 'Invalid signature'
             )
@@ -235,7 +237,7 @@ describe('Multisig', function() {
             const tx = makeTx(context)
             const sigTx = { ...tx, msigAddress: evils[0] }
             const signatures = await signTx(sigTx, owners)
-            await assertRevert(
+            await expectRevert(
                 execTx(tx, signaturesToList(signatures), from),
                 'Invalid signature'
             )
@@ -244,7 +246,7 @@ describe('Multisig', function() {
         it('fails if nonce is incorrect', async function() {
             const tx = { ...makeTx(context), nonce: 1 }
             const signatures = await signTx(tx, owners)
-            await assertRevert(
+            await expectRevert(
                 execTx(tx, signaturesToList(signatures), from),
                 'Invalid signature'
             )
@@ -254,7 +256,7 @@ describe('Multisig', function() {
             const tx = makeTx(context)
             const signers = [evils[0], ...owners.slice(1)]
             const signatures = await signTx(tx, signers)
-            await assertRevert(
+            await expectRevert(
                 execTx(tx, signaturesToList(signatures), from),
                 'Invalid signature'
             )
@@ -264,7 +266,7 @@ describe('Multisig', function() {
             const tx = makeTx(context)
             const signers = [evils[1], ...owners.slice(1)]
             const signatures = await signTx(tx, signers)
-            await assertRevert(
+            await expectRevert(
                 execTx(tx, signaturesToList(signatures), from),
                 'Invalid signature'
             )
@@ -274,7 +276,7 @@ describe('Multisig', function() {
             const tx = makeTx(context)
             const signers = [evils[2], ...owners.slice(1)]
             const signatures = await signTx(tx, signers)
-            await assertRevert(
+            await expectRevert(
                 execTx(tx, signaturesToList(signatures), from),
                 'Invalid signature'
             )
@@ -284,7 +286,7 @@ describe('Multisig', function() {
             const tx = makeTx(context)
             const signaturesList = signaturesToList(await signTx(tx, owners))
             signaturesList[1] = signaturesList[0]
-            await assertRevert(
+            await expectRevert(
                 execTx(tx, signaturesList, from),
                 'The addresses must be provided in the ascending order'
             )
@@ -295,7 +297,7 @@ describe('Multisig', function() {
             const signaturesList = signaturesToList(await signTx(tx, owners))
             const middle = Math.floor(signaturesList.length / 2)
             signaturesList[middle + 1] = signaturesList[middle]
-            await assertRevert(
+            await expectRevert(
                 execTx(tx, signaturesList, from),
                 'The addresses must be provided in the ascending order'
             )
@@ -306,7 +308,7 @@ describe('Multisig', function() {
             const signaturesList = signaturesToList(await signTx(tx, owners))
             const last = signaturesList.length - 1
             signaturesList[last - 1] = signaturesList[last]
-            await assertRevert(
+            await expectRevert(
                 execTx(tx, signaturesList, from),
                 'The addresses must be provided in the ascending order'
             )
@@ -316,7 +318,7 @@ describe('Multisig', function() {
             const tx = makeTx(context)
             const signaturesList = signaturesToList(await signTx(tx, owners))
             signaturesList[0] = '0x00'
-            await assertRevert(
+            await expectRevert(
                 execTx(tx, signaturesList, from),
                 'Invalid signature'
             )
@@ -327,7 +329,7 @@ describe('Multisig', function() {
             const signaturesList = signaturesToList(await signTx(tx, owners))
             const middle = Math.floor(signaturesList.length / 2)
             signaturesList[middle] = '0x00'
-            await assertRevert(
+            await expectRevert(
                 execTx(tx, signaturesList, from),
                 'Invalid signature'
             )
@@ -338,7 +340,7 @@ describe('Multisig', function() {
             const signaturesList = signaturesToList(await signTx(tx, owners))
             const last = signaturesList.length - 1
             signaturesList[last] = '0x00'
-            await assertRevert(
+            await expectRevert(
                 execTx(tx, signaturesList, from),
                 'Invalid signature'
             )

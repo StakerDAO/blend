@@ -1,4 +1,10 @@
 pragma solidity ^0.5.0;
+
+// This feature is considered mature enough to not cause any
+// security issues, so the possible warning should be ignored.
+// As per solidity developers, "The main reason it is marked
+// experimental is because it causes higher gas usage."
+// See: https://github.com/ethereum/solidity/issues/5397
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/IERC20.sol";
@@ -72,6 +78,12 @@ contract Orchestrator is Ownable {
         feePerSenderAddress = newFee;
     }
 
+    /// @notice Sends all BLEND tokens associated with the Orchestrator
+    ///         to the owner of the contract.
+    function collectBlend() public onlyOwner {
+        blend.transfer(owner(), blend.balanceOf(address(this)));
+    }
+
     /// @notice Starts token distribution. This prohibits token
     ///         unlocks and allows burning tokens from tender
     ///         addresses.
@@ -87,10 +99,9 @@ contract Orchestrator is Ownable {
     }
 
     /// @notice Executes orders from lowest price to highest.
-    ///         If there is not enough funds on either BLND
-    ///         balance or USDC balance, order is executed
-    ///         partially. If the specified tender address
-    ///         does not exist, the order is skipped.
+    ///         If there is not enough USDC, the order is executed
+    ///         partially. In case of other errors, the transaction
+    ///         fails.
     /// @param orders The orders to execute
     function executeOrders(Order[] memory orders) public onlyBackend {
         require(
@@ -110,12 +121,6 @@ contract Orchestrator is Ownable {
                 break;
             }
         }
-    }
-
-    /// @notice Sends all BLEND tokens associated with the Orchestrator
-    ///         to the owner of the contract.
-    function collectBlend() public onlyOwner {
-        blend.transfer(owner(), blend.balanceOf(address(this)));
     }
 
     /// @dev Executes a single order, possibly partially in case of not enough

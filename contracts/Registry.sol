@@ -41,6 +41,9 @@ contract Registry is Ownable {
         registryBackend = backend;
     }
 
+    /// @notice Sets a new registry backend address. Registry backend
+    ///         can set fees and register new tender addresses.
+    /// @param newBackend New backend address
     function setRegistryBackend(address newBackend) public onlyOwner {
         registryBackend = newBackend;
     }
@@ -49,12 +52,12 @@ contract Registry is Ownable {
     //          this address. The fee is also the minimum amount of tokens
     //          one has to send to a tender address or leave on a tender
     //          address while unlocking the funds.
-    /// @param newFee New minimum amount
+    /// @param newFee New fee
     function setFeePerAddress(uint256 newFee) public onlyBackend {
         feePerAddress = newFee;
     }
 
-    /// @notice Records a transfer from a regulat wallet to a tender address
+    /// @notice Records a transfer from a regular wallet to a tender address
     /// @param from The address of the token sender
     /// @param tenderAddress The tender address that received the funds
     /// @param amount The number of tokens sent (in the smallest units)
@@ -83,7 +86,9 @@ contract Registry is Ownable {
 
     /// @notice Records an unlock transaction that returns funds from
     ///         a tender address. Fails if there are not enough funds
-    ///         to unlock.
+    ///         to unlock. Requires that at least `feePerAddress`
+    ///         remains locked and associated with the sender's internal
+    ///         balance.
     /// @param tenderAddress Tender address to unlock the funds from
     /// @param to Wallet address that receives the unlocked funds
     /// @param amount The number of tokens unlocked
@@ -103,6 +108,10 @@ contract Registry is Ownable {
             _balances[tenderAddress][to] >= amount,
             "Insufficient locked amount"
         );
+
+        // We need to leave at least `feePerAddress` on the sender's
+        // internal balance because we don't want to iterate over _senders
+        // list here.
         require(
             _balances[tenderAddress][to].sub(amount) >= feePerAddress,
             "You must leave the fee on the tender address"
@@ -111,16 +120,18 @@ contract Registry is Ownable {
                 _balances[tenderAddress][to].sub(amount);
     }
 
-    function _subSaturated(uint256 a, uint256 b)
-        private
-        pure
-        returns (uint256)
-    {
-        if (a > b) return a.sub(b);
-        return 0;
-    }
-
-    /// @notice
+    /// @notice Reduces the internal "balances" of the token senders
+    ///         upon burn, i.e. makes sum(_balances[tenderAddress])
+    ///         equal to the tender address balance. During this
+    ///         operation, we traverse through senders' balances
+    ///         starting from the latest one and deduce either:
+    ///         1) the total internal balance AND a fee for removing
+    ///            the address from the senders list
+    ///         2) the remaining order amount – in this case the
+    ///            sender remains in the list and the fee is not
+    ///            taken.
+    ///         The method returns the total fee for all the addresses
+    ///         removed from _senders[tenderAddress].
     /// @param tenderAddress Tender address to burn from
     /// @param orderAmount The total amount to burn
     /// @return Fee for the execution
@@ -145,8 +156,8 @@ contract Registry is Ownable {
                 _balances[tenderAddress][sender] = 0;
                 _senders[tenderAddress].pop();
             } else {
-                // Deduce fee but not liquidate sender since there's some
-                // remaining BLEND amount
+                // Deduce the remaining order amount but not liquidate sender
+                // since there are some BLEND tokens left
                 _balances[tenderAddress][sender] = balance.sub(orderRemained);
                 orderRemained = 0;
                 break;
@@ -158,7 +169,7 @@ contract Registry is Ownable {
         return totalFee;
     }
 
-    /// @notice Adds an address to a set of registered tender addresses
+    /// @notice Adds an address to the set of registered tender addresses
     /// @param tenderAddress Tender address to register
     function registerTenderAddress(address tenderAddress) public onlyBackend {
         require(
@@ -192,14 +203,25 @@ contract Registry is Ownable {
         return _balances[tenderAddress][wallet];
     }
 
+    /// @notice Returns the number of addresses that have sent BLEND
+    ///         to the specified tender address AND are still eligible
+    ///         to unlock some nonzero amount of BLEND tokens.
+    /// @param tenderAddress Tender address
+    /// @return The number of senders
     function getSendersCount(address tenderAddress)
         public
         view
-        returns (uint256)
+        returns (uint)
     {
         return _senders[tenderAddress].length;
     }
 
+    /// @notice Returns the `idx`-th sender from the tender address'
+    ///         senders list. Throws if the given index is greater
+    ///         than or equal to the number of senders.
+    /// @param tenderAddress Tender address
+    /// @param idx Index of the sender
+    /// @return The address of the corresponding sender
     function getSender(address tenderAddress, uint idx)
         public
         view
@@ -210,5 +232,19 @@ contract Registry is Ownable {
             "Index out of range"
         );
         return _senders[tenderAddress][idx];
+    }
+
+    /// @dev Subtracts `b` from `a` if `a` is greater than `b`,
+    ///      otherwise returns 0.
+    /// @param a Minuend
+    /// @param b Subtrahend
+    /// @return Difference
+    function _subSaturated(uint256 a, uint256 b)
+        private
+        pure
+        returns (uint256)
+    {
+        if (a > b) return a.sub(b);
+        return 0;
     }
 }

@@ -1,10 +1,11 @@
 pragma solidity ^0.5.0;
 
 import "@openzeppelin/upgrades/contracts/Initializable.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/ownership/Ownable.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/math/SafeMath.sol";
 
-contract Registry is Ownable {
+import {Ownable} from "./Ownable.sol";
+
+contract Registry is Initializable, Ownable {
     address public registryBackend;
     address public blend;
     uint256 public feePerAddress;

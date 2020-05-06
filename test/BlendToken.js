@@ -14,11 +14,11 @@ describe('BlendToken', async function() {
         ctx.registry = await Registry.new({ from: owner })
         ctx.blend = await BlendToken.new({ from: owner })
 
-        const initializeBlend =
-            ctx.blend.methods['initialize(address,uint256,address,address)']
+        const BLEND_INIT = 'initialize(address,uint256,address,address)'
+        const initializeBlend = ctx.blend.methods[BLEND_INIT]
 
-        const initializeRegistry =
-            ctx.registry.methods['initialize(address,address)']
+        const REGISTRY_INIT = 'initialize(address,address)'
+        const initializeRegistry = ctx.registry.methods[REGISTRY_INIT]
 
         await initializeBlend(
             alice,
@@ -39,6 +39,40 @@ describe('BlendToken', async function() {
         await initialize()
         await ctx.registry.registerTenderAddress.sendTransaction(
             tenderAddress, { from: registryBackend }
+        )
+    })
+
+    describe('Setting registry address', async function() {
+        it('Allows owner to change registry address', async function() {
+            await ctx.blend.setRegistry(bob, {from: owner})
+            const newRegistry = await ctx.blend.registry()
+            expect(newRegistry).to.equal(bob)
+        })
+
+        it('Prohibits someone else to change the registry address',
+            async function() {
+                await expectRevert(
+                    ctx.blend.setRegistry(bob, {from: registryBackend}),
+                    'Ownable: caller is not the owner'
+                )
+            }
+        )
+    })
+
+    describe('Setting orchestrator address', async function() {
+        it('Allows owner to change orchestrator address', async function() {
+            await ctx.blend.setOrchestrator(bob, {from: owner})
+            const newOrchestrator = await ctx.blend.orchestrator()
+            expect(newOrchestrator).to.equal(bob)
+        })
+
+        it('Prohibits someone else to change the orchestrator address',
+            async function() {
+                await expectRevert(
+                    ctx.blend.setOrchestrator(bob, {from: registryBackend}),
+                    'Ownable: caller is not the owner'
+                )
+            }
         )
     })
 

@@ -8,11 +8,11 @@ pragma solidity ^0.5.0;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/ownership/Ownable.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/math/SafeMath.sol";
 
-import {Registry} from "./Registry.sol";
 import {BlendToken} from "./BlendToken.sol";
+import {Ownable} from "./Ownable.sol";
+import {Registry} from "./Registry.sol";
 
 contract Orchestrator is Ownable {
     IERC20 public usdc;

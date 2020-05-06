@@ -1,6 +1,6 @@
 const te = require('@openzeppelin/test-environment')
 const { contract, web3 } = te
-const { BN } = require('@openzeppelin/test-helpers')
+const { BN, expectRevert } = require('@openzeppelin/test-helpers')
 const { expect } = require('chai').use(require('chai-bn')(BN))
 const { toBN } = web3.utils
 const { priceToBN, PRICE_MULTIPLIER } = require('../common/price')
@@ -66,6 +66,34 @@ function blendToUsdc(blendAmount, price) {
     return blendAmount.mul(price).div(PRICE_MULTIPLIER)
 }
 
+// We need a this helper function because we make a transfer from
+// web3.eth.accounts.wallet. It has no funds initially and truffle
+// does not know about it, so in this function we fund the account
+// and then send the tx using web3.eth.sendTransaction function.
+// We don't use web3.eth.Contract because currently it does not
+// support in-memory wallets, that's why all this dark magic.
+async function lockTokens(blend, ethSource, wallet, tenderAddress, amount) {
+    await web3.eth.sendTransaction({
+        from: ethSource, to: wallet,
+        value: toBN(web3.utils.toWei('0.01'))
+    })
+    const txData =
+        await blend.contract.methods
+                    .transfer(tenderAddress, amount.toString())
+                    .encodeABI()
+    const txGas =
+        await blend.contract.methods
+                .transfer(tenderAddress, amount.toString())
+                .estimateGas({from: wallet})
+    await web3.eth.sendTransaction({
+        from: wallet,
+        to: blend.address,
+        data: txData,
+        gas: txGas,
+        value: '0'
+    })
+}
+
 const RunStrategy = Object.freeze({
     ONE_BATCH: 1,
     TWO_BATCHES: 2,
@@ -104,7 +132,6 @@ class Scenario {
         )
         const batches = this._splitOrders()
         for (let batch of batches) {
-            console.log(batch)
             await this.contracts.orchestrator.executeOrders(
                 batch.map(prepareOrder),
                 {from: this.accounts.distributionBackend}
@@ -168,35 +195,15 @@ class Scenario {
             return acc
         }, {})
 
-        // We need a Web3 contract and not Truffle contract here because we
-        // make a transfer from web3.eth.accounts.wallet, which truffle does
-        // not know about
-        const blend = new web3.eth.Contract(
-            this.contracts.blend.abi,
-            this.contracts.blend.address
-        )
-
         for (let [wallet, tenderLocks] of Object.entries(locks)) {
             for (let [tenderAddress, amount] of Object.entries(tenderLocks)) {
-                await web3.eth.sendTransaction({
-                    from: this.accounts.initialHolder, to: wallet,
-                    value: toBN(web3.utils.toWei('0.01'))
-                })
-                const txData =
-                    await blend.methods
-                               .transfer(tenderAddress, amount.toString())
-                               .encodeABI()
-                const txGas =
-                    await blend.methods
-                            .transfer(tenderAddress, amount.toString())
-                            .estimateGas({from: wallet})
-                await web3.eth.sendTransaction({
-                    from: wallet,
-                    to: this.contracts.blend.address,
-                    data: txData,
-                    gas: txGas,
-                    value: '0'
-                })
+                await lockTokens(
+                    this.contracts.blend,
+                    this.accounts.initialHolder,
+                    wallet,
+                    tenderAddress,
+                    amount
+                )
             }
         }
     }
@@ -298,7 +305,213 @@ describe('Distribution', async function() {
         }
     }
 
-    describe('tenderAddress-wallet: 1-1, fee: 0', async function() {
+    describe('Fee & burn dispatching', async function() {
+        const [alice, bob, carol] = [1, 2, 3].map(
+            idx => ctx.accounts.deriveWallet(idx)
+        )
+        const tenderAddress = ctx.accounts.deriveTenderAddress(0)
+
+        const orders = (() => {
+            const redeemerTenderAddress = tenderAddress
+            const redeemerWallet = ctx.accounts.deriveWallet(0)
+            return [
+                {
+                    redeemerTenderAddress,
+                    redeemerWallet,
+                    price: priceToBN('1'),
+                    amount: toBN('10')
+                },
+                {
+                    redeemerTenderAddress,
+                    redeemerWallet,
+                    price: priceToBN('1.5'),
+                    amount: toBN('6')
+                },
+            ]
+        })()
+
+        function $(address, amount) {
+            return {address, amount: toBN(amount)}
+        }
+
+        async function fund(amounts) {
+            for (let {address, amount} of amounts) {
+                await ctx.contracts.blend.transfer(
+                    address, amount, {from: ctx.accounts.initialHolder}
+                )
+                await lockTokens(
+                    ctx.contracts.blend,
+                    ctx.accounts.initialHolder,
+                    address,
+                    tenderAddress,
+                    amount
+                )
+            }
+        }
+
+        async function expectTenderBalances(amounts) {
+            for (let {address, amount} of amounts) {
+                const lockedAmount =
+                    await ctx.contracts.registry.getLockedAmount(
+                        tenderAddress, address
+                    )
+                expect(lockedAmount).to.be.bignumber.equal(amount)
+            }
+        }
+
+        async function expectRemainingSenders(senders) {
+            const actual = []
+            const sendersCount =
+                await ctx.contracts.registry.getSendersCount(tenderAddress)
+            expect(sendersCount).to.be.bignumber.equal(toBN(senders.length))
+            for (let i = 0; i < senders.length; ++i) {
+                actual.push(
+                    await ctx.contracts.registry.getSender(tenderAddress, i)
+                )
+            }
+            expect(actual).to.deep.equal(senders)
+        }
+
+        beforeEach(async function() {
+            ctx.contracts = await testDeploy(ctx.accounts, ctx.initialSupply)
+            await ctx.contracts.registry.registerTenderAddress(
+                tenderAddress, {from: ctx.accounts.registryBackend}
+            )
+            await ctx.contracts.registry.setFeePerAddress(
+                toBN('1'), {from: ctx.accounts.registryBackend}
+            )
+            await ctx.contracts.usdcToken.approve(
+                ctx.contracts.orchestrator.address,
+                toBN('100000000'),
+                {from: ctx.accounts.usdcPool}
+            )
+        })
+
+        async function checkFee({tx, receipt}, expectedFee) {
+            // We need to collect the events manually because `expectEvent`
+            // can't sum up the values, and we deduce fees several times
+            // (once per each order)
+            const events = await ctx.contracts.registry.getPastEvents(
+                'BurnDispatched',
+                {
+                    fromBlock: receipt.blockNumber,
+                    toBlock: receipt.blockNumber,
+                    filter: {tenderAddress}
+                }
+            )
+            const totalFee =
+                    events.filter(e => e.transactionHash == tx)
+                          .reduce((acc, e) => acc.add(e.args.fee), toBN('0'))
+            expect(totalFee).to.be.bignumber.equal(toBN(expectedFee))
+        }
+
+        async function runScenario(params) {
+            await fund(params.before)
+            await ctx.contracts.orchestrator.startDistribution(
+                {from: ctx.accounts.distributionBackend}
+            )
+            if (params.expectedError) {
+                await expectRevert(
+                    ctx.contracts.orchestrator.executeOrders(
+                        orders.map(prepareOrder),
+                        {from: ctx.accounts.distributionBackend}
+                    ),
+                    params.expectedError
+                )
+                return
+            }
+            const {after, expectedFee} = params
+            const receipt = await ctx.contracts.orchestrator.executeOrders(
+                orders.map(prepareOrder),
+                {from: ctx.accounts.distributionBackend}
+            )
+
+            await checkFee(receipt, expectedFee)
+            await expectRemainingSenders(after.map(v => v.address))
+            await expectTenderBalances(after)
+            await ctx.contracts.orchestrator.stopDistribution(
+                {from: ctx.accounts.distributionBackend}
+            )
+        }
+
+        it('Burns from the first address', async function() {
+            await runScenario({
+                before: [$(alice, '10'), $(bob, '10'), $(carol, '20')],
+                after: [$(alice, '10'), $(bob, '10'), $(carol, '4')],
+                expectedFee: '0'
+            })
+        })
+
+        it('Liquidates the first address', async function() {
+            await runScenario({
+                before: [$(alice, '10'), $(bob, '10'), $(carol, '11')],
+                after: [$(alice, '10'), $(bob, '4')],
+                expectedFee: '1'
+            })
+        })
+
+        it('Liquidates the first address (splits the order correctly)',
+            async function() {
+                await runScenario({
+                    before: [$(alice, '10'), $(bob, '10'), $(carol, '10')],
+                    after: [$(alice, '10'), $(bob, '3')],
+                    expectedFee: '1'
+                })
+            }
+        )
+
+        it('Liquidates the first two addresses', async function() {
+            await runScenario({
+                before: [$(alice, '10'), $(bob, '6'), $(carol, '6')],
+                after: [$(alice, '4')],
+                expectedFee: '2'
+            })
+        })
+
+        it('Liquidates all three addresses', async function() {
+            await runScenario({
+                before: [$(alice, '11'), $(bob, '4'), $(carol, '4')],
+                after: [],
+                expectedFee: '3'
+            })
+        })
+
+        it('Fails if not enough balance', async function() {
+            await runScenario({
+                before: [$(alice, '5'), $(bob, '2'), $(carol, '3')],
+                expectedError: "Not enough balance on tender address"
+            })
+        })
+
+        it('Fails if not enough balance (2)', async function() {
+            await runScenario({
+                before: [$(alice, '10'), $(bob, '4'), $(carol, '4')],
+                expectedError: "Not enough balance on tender address"
+            })
+        })
+
+        it('Liquidates the first address even if only fee is deduced',
+           async function() {
+                await runScenario({
+                    before: [$(alice, '11'), $(bob, '11'), $(carol, '1')],
+                    after: [$(alice, '5')],
+                    expectedFee: '2'
+                })
+           }
+        )
+
+        it('Liquidates the second address even if only fee is deduced',
+           async function() {
+                await runScenario({
+                    before: [$(alice, '11'), $(bob, '1'), $(carol, '11')],
+                    after: [$(alice, '5')],
+                    expectedFee: '2'
+                })
+           }
+        )
+    })
+
+    describe('Randomized, tenderAddress-wallet: 1-1, fee: 0', async function() {
         function mkOrder(idx) {
             const priceNum = getRandomInt(1, 100000) / PRICE_MULTIPLIER.toNumber()
             return {
@@ -324,12 +537,12 @@ describe('Distribution', async function() {
                 orders, runStrategy, contracts, ctx.accounts
             )
             await scenario.prepare()
-            const snapshot = await scenario.balancesSnapshot()
-            return {scenario, snapshot}
+            return {scenario}
         }
 
         describe('Executes 10 random orders', async function() {
-            async function checkResults({scenario, snapshot}) {
+            async function checkResults({scenario}) {
+                const snapshot = await scenario.balancesSnapshot()
                 await scenario.run()
                 const balancesDelta = await scenario.balancesDelta(snapshot)
 
@@ -375,96 +588,53 @@ describe('Distribution', async function() {
             })
         })
 
-        it('Skips a non-tender address', async function() {
+        it('Fails if there is a non-tender address', async function() {
             await testProperty(
                 () => prepareScenario(RunStrategy.ONE_BATCH),
-                async ({scenario, snapshot}) => {
-
+                async ({scenario}) => {
                     const nontenderIdx =
                         getRandomInt(0, scenario.orders.length - 1)
 
-                    // Set to a non-tender address, get expected BLND
-                    // and USDC difference and fix the snapshot
                     const nontenderAddress = ctx.accounts.registryBackend
+                    const nontenderOrder = scenario.orders[nontenderIdx]
                     scenario.orders[nontenderIdx].redeemerTenderAddress =
                         nontenderAddress
-                    const skippedOrder = scenario.orders[nontenderIdx]
-                    const nontenderBlendAmount = skippedOrder.amount
-                    const undistributedUsdc = blendToUsdc(
-                        skippedOrder.amount, skippedOrder.price
+                    await ctx.contracts.blend.transfer(
+                        nontenderAddress, nontenderOrder.amount,
+                        {from: scenario.accounts.initialHolder}
                     )
-                    snapshot.blend[nontenderAddress] = toBN('0')
 
-                    await scenario.run()
-                    const balancesDelta = await scenario.balancesDelta(snapshot)
-
-                    for (let i = 0; i < scenario.orders.length; ++i) {
-                        const order = scenario.orders[i]
-                        if (i == nontenderIdx) {
-                            expect(
-                                balancesDelta.blend[order.redeemerTenderAddress]
-                            ).to.be.bignumber.equal(toBN('0'))
-                            expect(
-                                balancesDelta.usdc[order.redeemerWallet]
-                            ).to.be.bignumber.equal(toBN('0'))
-                            continue
-                        }
-                        expect(
-                            balancesDelta.blend[order.redeemerTenderAddress]
-                        ).to.be.bignumber.equal(
-                            order.amount.neg()
-                        )
-                        expect(
-                            balancesDelta.usdc[order.redeemerWallet]
-                        ).to.be.bignumber.equal(
-                            blendToUsdc(order.amount, order.price)
-                        )
-                    }
-
-                    expect(
-                        await scenario.remainingAllowance()
-                    ).to.be.bignumber.equal(
-                        undistributedUsdc
+                    await expectRevert(
+                        scenario.run(),
+                        'Burning from regular addresses is not allowed'
                     )
                 }
             )
         })
 
-        it('Partially executes underfunded orders', async function() {
+        it('Fails if there is an underfunded order', async function() {
             await testProperty(
                 () => prepareScenario(RunStrategy.ONE_BATCH),
-                async ({scenario, snapshot}) => {
-                    // Here we simply add some big amount to orders. Since
-                    // tender balance does not change, we successfully simulate
-                    // an underfunding situation. We remember the balance of the
-                    // tender address, though, to check whether the order has
-                    // been executed successfully.
-                    for (let order of scenario.orders) {
-                        order.partialAmount =
-                            snapshot.blend[order.redeemerTenderAddress]
-                        order.amount = order.amount.add(toBN('100000000'))
-                    }
+                async ({scenario}) => {
+                    const underfundedIdx =
+                        getRandomInt(0, scenario.orders.length - 1)
+                    scenario.orders[underfundedIdx].amount =
+                        scenario.orders[underfundedIdx].amount.add(toBN('1'))
 
-                    await scenario.run()
-                    const balancesDelta = await scenario.balancesDelta(snapshot)
+                    // Need to approve more USDC because we have changed
+                    // the amount of one of the orders. If we don't do this
+                    // and this order happens to be the last one, it will
+                    // be executed partially due to the lack of USDC, and
+                    // we'll not get the expected error.
+                    await scenario.contracts.usdcToken.approve(
+                        scenario.contracts.orchestrator.address,
+                        scenario.usdcTotal(),
+                        {from: scenario.accounts.usdcPool}
+                    )
 
-                    for (let order of scenario.orders) {
-                        expect(
-                            balancesDelta.blend[order.redeemerTenderAddress]
-                        ).to.be.bignumber.equal(
-                            order.partialAmount.neg()
-                        )
-                        expect(
-                            balancesDelta.usdc[order.redeemerWallet]
-                        ).to.be.bignumber.equal(
-                            blendToUsdc(order.partialAmount, order.price)
-                        )
-                    }
-
-                    expect(
-                        await scenario.remainingAllowance()
-                    ).to.be.bignumber.equal(
-                        toBN('0')
+                    await expectRevert(
+                        scenario.run(),
+                        'Not enough balance on tender address'
                     )
                 }
             )

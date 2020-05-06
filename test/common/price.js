@@ -10,8 +10,13 @@ function priceToBN(priceStr) {
     if (fractional && fractional.length > PRICE_DECIMALS) {
         throw new Error('Too many decimals in price, refuse to lose precision')
     }
-    integerBN = toBN(integer)
-    fractionalBN = fractional ? toBN(fractional) : toBN('0')
+
+    const integerBN = toBN(integer)
+    let fractionalBN = toBN('0')
+    if (fractional) {
+        const zeros = '0'.repeat(PRICE_DECIMALS - fractional.length)
+        fractionalBN = toBN(fractional + zeros)
+    }
     return integerBN.mul(PRICE_MULTIPLIER).add(fractionalBN)
 }
 

@@ -14,8 +14,9 @@ contract Orchestrator is Ownable {
     Registry public registry;
     address public distributionBackend;
     address public usdcPool;
+    uint256 public feePerSenderAddress;
 
-    uint constant PRICE_MULTIPLIER = 10_000;
+    uint256 constant PRICE_MULTIPLIER = 10_000;
 
     using SafeMath for uint256;
 
@@ -64,6 +65,13 @@ contract Orchestrator is Ownable {
         usdcPool = pool;
     }
 
+    /// @notice Sets a BLND fee for one address in tender address
+    ///         senders list.
+    /// @param newFee new fee
+    function setFee(uint256 newFee) public onlyBackend {
+        feePerSenderAddress = newFee;
+    }
+
     /// @notice Starts token distribution. This prohibits token
     ///         unlocks and allows burning tokens from tender
     ///         addresses.
@@ -83,6 +91,7 @@ contract Orchestrator is Ownable {
     ///         balance or USDC balance, order is executed
     ///         partially. If the specified tender address
     ///         does not exist, the order is skipped.
+    /// @param orders The orders to execute
     function executeOrders(Order[] memory orders) public onlyBackend {
         require(
             blend.distributionPhase(),
@@ -103,30 +112,28 @@ contract Orchestrator is Ownable {
         }
     }
 
-    /// @dev Executes a single order, possibly partially. If the specified
-    ///      tender address does not exist, returns false. Otherwise
-    ///      executes the order and returns true in case of success.
+    /// @notice Sends all BLEND tokens associated with the Orchestrator
+    ///         to the owner of the contract.
+    function collectBlend() public onlyOwner {
+        blend.transfer(owner(), blend.balanceOf(address(this)));
+    }
+
+    /// @dev Executes a single order, possibly partially in case of not enough
+    ///      USDC. Fails in case the order can not be executed (due to
+    ///      insufficient BLND balance or non-existent tender address).
     /// @param order The order to execute
     /// @param maxUsdc Maximum amount of USDC that can be spent on execution
     /// @return Whether the order has been executed
-    function _executeOrder(Order memory order, uint256 maxUsdc)
-        internal
-        returns (bool)
-    {
-        if (!registry.isTenderAddress(order.redeemerTenderAddress)) {
-            // Only tender addresses are allowed
-            return false;
-        }
-        uint256 redeemerBlendBalance =
-                blend.balanceOf(order.redeemerTenderAddress);
-        uint256 blendAmount = _min(order.amount, redeemerBlendBalance);
+    function _executeOrder(Order memory order, uint256 maxUsdc) internal {
+        uint256 blendAmount = order.amount;
         uint256 usdcAmount = _blendToUsdc(blendAmount, order.price);
         if (usdcAmount > maxUsdc) {
             usdcAmount = maxUsdc;
             blendAmount = _usdcToBlend(usdcAmount, order.price);
         }
-        usdc.transferFrom(usdcPool, order.redeemerWallet, usdcAmount);
+
         blend.burn(order.redeemerTenderAddress, blendAmount);
+        usdc.transferFrom(usdcPool, order.redeemerWallet, usdcAmount);
     }
 
     /// @dev Given some fixed-point price, converts BLEND to USDC.

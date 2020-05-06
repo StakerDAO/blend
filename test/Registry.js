@@ -1,5 +1,5 @@
 const { accounts, contract, web3 } = require('@openzeppelin/test-environment')
-const { expectRevert, BN, constants } = require('@openzeppelin/test-helpers')
+const { expectRevert, BN, constants, expectEvent } = require('@openzeppelin/test-helpers')
 const { expect } = require('chai').use(require('chai-bn')(BN))
 const { toBN } = web3.utils
 const Registry = contract.fromArtifact('Registry')
@@ -7,7 +7,7 @@ const Registry = contract.fromArtifact('Registry')
 
 describe('Registry', async function() {
     const ctx = {}
-    const [owner, blend, registryBackend, alice, bob, evil] = accounts
+    const [owner, blend, registryBackend, alice, bob, carol, evil] = accounts
 
     beforeEach(async function() {
         ctx.registry = await Registry.new({ from: owner })
@@ -238,6 +238,150 @@ describe('Registry', async function() {
                     tenderAddress, wallet, web3.utils.toBN('100001'), { from: blend }
                 ),
                 'Insufficient locked amount'
+            )
+        })
+    })
+
+    describe('dispatchBurn', async function() {
+        const tenderAddress = evil
+
+        beforeEach(async function() {
+            await ctx.registry.registerTenderAddress(
+                tenderAddress, {from: registryBackend}
+            )
+            await ctx.registry.setFeePerAddress(
+                toBN('1'), {from: registryBackend}
+            )
+        })
+
+        function $(address, amount) {
+            return {address, amount: toBN(amount)}
+        }
+
+        async function fund(amounts) {
+            for (let entry of amounts) {
+                const {address, amount} = entry
+                await ctx.registry.recordTransfer(
+                    address, tenderAddress, amount, {from: blend}
+                )
+            }
+        }
+
+        async function expectTenderBalances(amounts) {
+            for (let {address, amount} of amounts) {
+                const lockedAmount = await ctx.registry.getLockedAmount(
+                    tenderAddress, address
+                )
+                expect(lockedAmount).to.be.bignumber.equal(amount)
+            }
+        }
+
+        async function expectRemainingSenders(senders) {
+            const actual = []
+            const sendersCount =
+                await ctx.registry.getSendersCount(tenderAddress)
+            expect(sendersCount).to.be.bignumber.equal(toBN(senders.length))
+            for (let i = 0; i < senders.length; ++i) {
+                actual.push(await ctx.registry.getSender(tenderAddress, i))
+            }
+            expect(actual).to.deep.equal(senders)
+        }
+
+        async function runScenario({transfers, amount, after, expectedFee}) {
+            await fund(transfers)
+            const receipt = await ctx.registry.dispatchBurn(
+                tenderAddress, amount, {from: blend}
+            )
+
+            expectEvent(
+                receipt, 'BurnDispatched',
+                {tenderAddress, fee: toBN(expectedFee)}
+            )
+
+            await expectRemainingSenders(after.map(v => v.address))
+            await expectTenderBalances(after)
+        }
+
+        it('Disallows someone except BLEND to dispatch burn', async function() {
+            await fund([$(alice, '10'), $(bob, '20'), $(carol, '30')])
+            await expectRevert(
+                ctx.registry.dispatchBurn(tenderAddress, '10', {from: evil}),
+                'Unauthorized: sender is not a Blend token contract'
+            )
+        })
+
+        it('Deduces burn amount from the first address', async function() {
+            await runScenario({
+                transfers: [$(alice, '10'), $(bob, '10'), $(carol, '20')],
+                amount: '10',
+                after: [$(alice, '10'), $(bob, '10'), $(carol, '10')],
+                expectedFee: '0'
+            })
+        })
+
+        it('Liquidates the first address', async function() {
+            await runScenario({
+                transfers: [$(alice, '10'), $(bob, '10'), $(carol, '11')],
+                amount: '10',
+                after: [$(alice, '10'), $(bob, '10')],
+                expectedFee: '1'
+            })
+        })
+
+        it('Debits the second address', async function() {
+            await runScenario({
+                transfers: [$(alice, '10'), $(bob, '10'), $(carol, '10')],
+                amount: '10',
+                after: [$(alice, '10'), $(bob, '9')],
+                expectedFee: '1'
+            })
+        })
+
+        it('Liquidates two addresses', async function() {
+            await runScenario({
+                transfers: [$(alice, '10'), $(bob, '6'), $(carol, '6')],
+                amount: '10',
+                after: [$(alice, '10')],
+                expectedFee: '2'
+            })
+        })
+
+        it('Liquidates all addresses', async function() {
+            await runScenario({
+                transfers: [$(alice, '5'), $(bob, '4'), $(carol, '4')],
+                amount: '10',
+                after: [],
+                expectedFee: '3'
+            })
+        })
+
+        it('Liquidates the first address even if only fee is deduced',
+            async function() {
+                await runScenario({
+                    transfers: [$(alice, '5'), $(bob, '11'), $(carol, '1')],
+                    amount: '10',
+                    after: [$(alice, '5')],
+                    expectedFee: '2'
+                })
+            }
+        )
+
+        it('Liquidates the second address even if only fee is deduced',
+            async function() {
+                await runScenario({
+                    transfers: [$(alice, '5'), $(bob, '1'), $(carol, '11')],
+                    amount: '10',
+                    after: [$(alice, '5')],
+                    expectedFee: '2'
+                })
+            }
+        )
+
+        it('Reverts if not enough tokens', async function() {
+            await fund([$(alice, '5'), $(bob, '2'), $(carol, '3')])
+            await expectRevert(
+                ctx.registry.dispatchBurn(tenderAddress, '10', {from: blend}),
+                'Not enough balance on tender address'
             )
         })
     })

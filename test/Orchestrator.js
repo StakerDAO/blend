@@ -145,7 +145,7 @@ describe('Orchestrator', async function() {
             expect(tenderBlendBalance).to.be.bignumber.equal(toBN('90'))
         })
 
-        it('executes a partial order bound by BLEND', async function() {
+        it('fails on order bound by BLEND', async function() {
             const orders = [
                 {
                     redeemerTenderAddress: tenderAddress,
@@ -154,11 +154,10 @@ describe('Orchestrator', async function() {
                     amount: 150
                 }
             ]
-            await ctx.orchestrator.executeOrders(orders, {from: distributionBackend})
-            const aliceUsdcBalance = await ctx.usdcToken.balanceOf(alice)
-            const tenderBlendBalance = await ctx.blend.balanceOf(tenderAddress)
-            expect(aliceUsdcBalance).to.be.bignumber.equal(toBN('10'))
-            expect(tenderBlendBalance).to.be.bignumber.equal(toBN('0'))
+            await expectRevert(
+                ctx.orchestrator.executeOrders(orders, {from: distributionBackend}),
+                'Not enough balance on tender address'
+            )
         })
 
         it('rounds BLEND amount up', async function() {

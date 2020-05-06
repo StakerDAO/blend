@@ -88,14 +88,6 @@ contract BlendToken is Initializable, Ownable, ERC20, ERC20Detailed {
             !distributionPhase,
             "Cannot unlock funds at distribution phase"
         );
-        require(
-            amount <= balanceOf(tenderAddress),
-            "Insufficient balance"
-        );
-        require(
-            amount <= registry.getLockedAmount(tenderAddress, _msgSender()),
-            "Insufficient funds locked"
-        );
         _transfer(tenderAddress, _msgSender(), amount);
         registry.recordUnlock(tenderAddress, _msgSender(), amount);
     }
@@ -126,10 +118,6 @@ contract BlendToken is Initializable, Ownable, ERC20, ERC20Detailed {
         require(
             distributionPhase,
             "Burn is allowed only at distribution phase"
-        );
-        require(
-            registry.isTenderAddress(tenderAddress),
-            "Burning from regular addresses is not allowed"
         );
         // `registry.dispatchBurn` would simultaneously compute fees
         // and cleanup the tender address' senders list. Ideally, we

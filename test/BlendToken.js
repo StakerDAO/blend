@@ -164,7 +164,7 @@ describe('BlendToken', async function() {
             expect(tenderBalance).to.be.bignumber.equal(toBN('100'))
             await expectRevert(
                 ctx.blend.unlock(tenderAddress, toBN('150'), { from: alice }),
-                'Insufficient balance'
+                'ERC20: transfer amount exceeds balance'
             )
         })
 
@@ -179,7 +179,7 @@ describe('BlendToken', async function() {
             expect(tenderBalance).to.be.bignumber.equal(toBN('200'))
             await expectRevert(
                 ctx.blend.unlock(tenderAddress, toBN('150'), { from: alice }),
-                'Insufficient funds locked'
+                'Insufficient locked amount'
             )
         })
     })

@@ -140,6 +140,10 @@ contract Registry is Ownable {
         onlyBlend
         returns (uint256 totalFee)
     {
+        require(
+            isTenderAddress(tenderAddress),
+            "Burning from regular addresses is not allowed"
+        );
         uint len = _senders[tenderAddress].length;
         uint256 orderRemained = orderAmount;
         totalFee = 0;

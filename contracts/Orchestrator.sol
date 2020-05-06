@@ -20,7 +20,6 @@ contract Orchestrator is Ownable {
     Registry public registry;
     address public distributionBackend;
     address public usdcPool;
-    uint256 public feePerSenderAddress;
 
     uint256 constant PRICE_MULTIPLIER = 10_000;
 
@@ -69,13 +68,6 @@ contract Orchestrator is Ownable {
     /// @param pool The address of the pool
     function setUsdcPool(address pool) public onlyOwner {
         usdcPool = pool;
-    }
-
-    /// @notice Sets a BLND fee for one address in tender address
-    ///         senders list.
-    /// @param newFee new fee
-    function setFee(uint256 newFee) public onlyBackend {
-        feePerSenderAddress = newFee;
     }
 
     /// @notice Sends all BLEND tokens associated with the Orchestrator

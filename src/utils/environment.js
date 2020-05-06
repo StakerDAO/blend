@@ -31,7 +31,7 @@ class BlendEnvironment {
             console.log(
                 `The CLI was unable to find the address of the "${name}" ` +
                 `contract on "${ this.network }" network. Make sure to run ` +
-                `\`truffle migrate\` to deploy the "${name}" contract.\n`
+                `\`blend deploy\` to deploy the "${name}" contract.\n`
             )
             throw err
         }

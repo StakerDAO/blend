@@ -77,7 +77,7 @@ contract Multisig {
     }
 
     function checkSignatures(bytes memory dataToSign, bytes[] memory signatures)
-        internal
+        private
         view
     {
         // We fail on duplicate signatures, so this condition is sufficient, no need
@@ -97,7 +97,7 @@ contract Multisig {
         }
     }
 
-    function updateOwners(address[] memory newOwners) internal {
+    function updateOwners(address[] memory newOwners) private {
         for (uint i = 0; i < owners.length; i++) {
             delete isOwner[owners[i]];
         }

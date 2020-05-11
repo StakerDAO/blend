@@ -1,10 +1,10 @@
 pragma solidity ^0.5.0;
 
 import "@openzeppelin/upgrades/contracts/Initializable.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/ownership/Ownable.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20Detailed.sol";
 
+import {Ownable} from "./Ownable.sol";
 import {Registry} from "./Registry.sol";
 
 contract BlendToken is Initializable, Ownable, ERC20, ERC20Detailed {
@@ -31,6 +31,7 @@ contract BlendToken is Initializable, Ownable, ERC20, ERC20Detailed {
         initializer
     {
         ERC20Detailed.initialize("Blend Token", "BLEND", 18);
+        Ownable.initialize(_msgSender());
         _mint(initialHolder, initialSupply);
         registry = Registry(registryAddress);
         orchestrator = orchestratorAddress;

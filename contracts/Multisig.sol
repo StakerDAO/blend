@@ -1,4 +1,4 @@
-pragma solidity ^0.5.0;
+pragma solidity 0.5.13;
 
 // This feature is considered mature enough to not cause any
 // security issues, so the possible warning should be ignored.

@@ -118,6 +118,16 @@ describe('Multisig', function() {
             execTx: rotateKeys,
         })
 
+        it('reverts on too large threshold', async () => {
+            const tx = getValidTx(context)
+            tx.threshold = tx.newOwners.length + 1
+            const signatures = await signRotateKeysTx(tx, owners)
+            await expectRevert(
+                rotateKeys(tx, signaturesToList(signatures), from),
+                'The supplied threshold is more than the number of owners'
+            )
+        })
+
         it('changes owner set if everything is correct', async () => {
             const tx = getValidTx(context)
             const signatures = await signRotateKeysTx(tx, owners)

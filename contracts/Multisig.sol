@@ -61,6 +61,10 @@ contract Multisig {
     )
         public
     {
+        require(
+            newThreshold <= newOwners.length,
+            "The supplied threshold is more than the number of owners"
+        );
         // Note that `newOwners` is the only variable-length parameter, so
         // we can safely use `encodePacked` here. If this wasn't the case,
         // since length is not encoded, it would be possible to craft

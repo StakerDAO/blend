@@ -1,5 +1,20 @@
 # StakerDAO Blend Architecture
 
+## Multisig
+Our Registry and BlendToken contracts are upgradeable.
+Moreover, all three of our logic contracts – Registry, BlendToken, and Orchestrator – are _Ownable,_ i.e. they have an owner that can assign addresses of different entities such as distribution or registry backend, collect BLEND tokens from Orchestrator, etc.
+
+To govern the upgrades, and to manage the contracts, we use a special Multisig contract.
+We chose to implement the Multisig from scratch rather than use the existing alternatives because we needed an off-chain signing flow.
+Most of the audited open-source multisig contracts use on-chain signing, which is easier to implement on Ethereum.
+However, such flow is hardly applicable to financial applications because publishing half-signed transactions may provide additional information to the market players, possibly influencing the value of the token.
+We can not predict such influence in advance but we try to be conservative in this regard and rather use the off-chain signing flow so that our managerial transactions are atomic.
+
+The Multisig contract features two methods: `execute` and `rotateKeys`.
+Both of these methods require at least a predefined number of signatures to be present and valid.
+The first one executes some transaction (contract upgrade or changing the distribution backend address, etc.).
+The second one changes the set of the Multisig owners and/or the required threshold.
+
 ## Token locks and unlocks
 Every holder of BLEND tokens can lock his funds to participate in a tender offer.
 To lock the funds, the token holder must first register a new special **tender address** via the provided user interface.
@@ -65,14 +80,63 @@ The owner of the Orchestrator can then collect the fees using `orchestrator.coll
 ![CollectBlend](./flowcharts/Orchestrator/collectBlend.png)
 
 ## Contracts
+
+### Multisig
+The contract is non-upgradeable and does not have a single owner.
+
+Storage:
+* `uint public nonce`
+* `address[] public owners`
+* `mapping(address => bool) public isOwner`
+* `uint public threshold`
+
+Methods:
+1. `execute(address destination, uint256 value, bytes memory data, bytes[] memory signatures)`
+   - **Behavior:** If all the signatures are correct, and if the number of signatures is more than threshold, sends a transaction to `destination` transferring `value` tokens nad providing `data` as the transaction data. Otherwise, fails. Note that the sgnatures must be provided in order (by signer's address, ascending).
+      - Data to sign:
+         - `0x1900`,
+         - Multisig address,
+         - `destination`,
+         - `value`,
+         - `data`,
+         - `nonce`.
+      - The nonce is increased by 1 after this operation.
+      - Reverts if `newThreshold` is more than `newOwners.length`.
+   - **Access:** anyone
+   - **Exceptions:**
+      - Threshold not met
+      - Invalid signature
+      - The addresses must be provided in the ascending order
+      - The supplied threshold is more than the number of owners
+
+2. `rotateKeys(address[] memory newOwners, uint newThreshold, bytes[] memory signatures)`
+   - **Behavior:** If all the signatures are correct, and if the number of signatures is more than threshold, sets the new set of eligible signers and the new threshold. Note that the sgnatures must be provided in order (by signer's address, ascending).
+      - Data to sign:
+         - `0x1900`,
+         - Multisig address,
+         - `newOwners`,
+         - `newThreshold`,
+         - `nonce`
+      - Deletes old owners from the `isOwner` mapping.
+      - Inserts the new owners to the `isOwner` mapping.
+      - Replaces `owners` with the new owners list.
+      - Updates `treshold` with the new threshold.
+      - The nonce is increased by 1 after this operation.
+   - **Access:** anyone
+   - **Exceptions:**
+      - Threshold not met
+      - Invalid signature
+      - The addresses must be provided in the ascending order
+
 ### Blend Token
 The contract is an upgradeable ERC-20 token with custom `transfer` and `transferFrom` logic.
 
 The contract has an owner. The owner can be updated via a two-step updating approach (`transferOwnership` + `acceptOwnership`).
 
 Storage:
-* `public address orhestrator`
-* `public address registry`
+* `bool public distributionPhase`
+* `Registry public registry`
+* `address public orhestrator`
 
 Methods:
 1. `setRegistry(address newRegistry)`
@@ -250,11 +314,14 @@ struct Order {
 ```
 
 Storage:
-* `public address usdc`
-* `public address blend`
-* `public address registry`
-* `public address distributionBackend`
-* `public address usdcPool`
+* `IERC20 public usdc`
+* `BlendToken public blend`
+* `Registry public registry`
+* `address public distributionBackend`
+* `address public usdcPool`
+
+Constants:
+* `uint256 public constant PRICE_MULTIPLIER = 10_000`
 
 State-modifying methods:
 1. `setDistributionBackend(address newBackend)`

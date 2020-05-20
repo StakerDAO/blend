@@ -1,4 +1,4 @@
-pragma solidity ^0.5.0;
+pragma solidity 0.5.13;
 
 // This feature is considered mature enough to not cause any
 // security issues, so the possible warning should be ignored.
@@ -21,7 +21,7 @@ contract Orchestrator is Ownable {
     address public distributionBackend;
     address public usdcPool;
 
-    uint256 constant PRICE_MULTIPLIER = 10_000;
+    uint256 public constant PRICE_MULTIPLIER = 10_000;
 
     using SafeMath for uint256;
 
@@ -121,7 +121,7 @@ contract Orchestrator is Ownable {
     /// @param order The order to execute
     /// @param maxUsdc Maximum amount of USDC that can be spent on execution
     /// @return Whether the order has been executed
-    function _executeOrder(Order memory order, uint256 maxUsdc) internal {
+    function _executeOrder(Order memory order, uint256 maxUsdc) private {
         uint256 blendAmount = order.amount;
         uint256 usdcAmount = _blendToUsdc(blendAmount, order.price);
         if (usdcAmount > maxUsdc) {
@@ -141,7 +141,7 @@ contract Orchestrator is Ownable {
     /// @param price Fixed-point price (actual price * PRICE_MULTIPLIER)
     /// @return USDC amount
     function _blendToUsdc(uint256 blendAmount, uint256 price)
-        internal
+        private
         pure
         returns (uint256 usdcAmount)
     {
@@ -157,7 +157,7 @@ contract Orchestrator is Ownable {
     /// @param price Fixed-point price (actual price * PRICE_MULTIPLIER)
     /// @return BLEND amount
     function _usdcToBlend(uint256 usdcAmount, uint256 price)
-        internal
+        private
         pure
         returns (uint256 blendAmount)
     {
@@ -169,7 +169,7 @@ contract Orchestrator is Ownable {
     /// @param a Divident
     /// @param b Divisor
     /// @return Integral quotient, guaranteed to be not less than a / b
-    function _ceilDiv(uint256 a, uint256 b) internal pure returns (uint256) {
+    function _ceilDiv(uint256 a, uint256 b) private pure returns (uint256) {
         uint256 quot = a.div(b);
         uint256 rem = a.mod(b);
         return (rem == 0) ? quot : (quot + 1);
@@ -179,7 +179,7 @@ contract Orchestrator is Ownable {
     /// @param a First value
     /// @param b Second value
     /// @return Minimum of two values
-    function _min(uint256 a, uint256 b) internal pure returns (uint256) {
+    function _min(uint256 a, uint256 b) private pure returns (uint256) {
         return (a < b) ? a : b;
     }
 }

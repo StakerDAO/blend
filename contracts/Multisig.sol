@@ -1,4 +1,4 @@
-pragma solidity ^0.5.0;
+pragma solidity 0.5.13;
 
 // This feature is considered mature enough to not cause any
 // security issues, so the possible warning should be ignored.
@@ -61,6 +61,10 @@ contract Multisig {
     )
         public
     {
+        require(
+            newThreshold <= newOwners.length,
+            "The supplied threshold is more than the number of owners"
+        );
         // Note that `newOwners` is the only variable-length parameter, so
         // we can safely use `encodePacked` here. If this wasn't the case,
         // since length is not encoded, it would be possible to craft
@@ -77,7 +81,7 @@ contract Multisig {
     }
 
     function checkSignatures(bytes memory dataToSign, bytes[] memory signatures)
-        internal
+        private
         view
     {
         // We fail on duplicate signatures, so this condition is sufficient, no need
@@ -97,7 +101,7 @@ contract Multisig {
         }
     }
 
-    function updateOwners(address[] memory newOwners) internal {
+    function updateOwners(address[] memory newOwners) private {
         for (uint i = 0; i < owners.length; i++) {
             delete isOwner[owners[i]];
         }

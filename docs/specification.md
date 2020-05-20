@@ -161,6 +161,9 @@ Methods:
    - **Exceptions (from Registry):**
       - The amount must not be less than minimum (if the amount is less than the current fee)
       - Overflow
+   - **Events:**
+      - Emits ERC-20 `Transfer(address indexed from, address indexed to, uint256 value)`
+      - Emits `TokensLocked(address indexed wallet, address indexed tenderAddress, uint256 amount)` if the `to` is a tender address
 
 2. `transferFrom(address from, address to, uint256 amount) -> bool`
    - **Behavior:** Transfers tokens (possibly to a tender address)
@@ -173,6 +176,9 @@ Methods:
    - **Exceptions (from Registry):**
       - The amount must not be less than minimum (if the amount is less than the current fee)
       - Overflow
+   - **Events:**
+      - Emits ERC-20 `Transfer(address indexed from, address indexed to, uint256 value)`
+      - Emits `TokensLocked(address indexed wallet, address indexed tenderAddress, uint256 amount)` if the `to` is a tender address
 
 3. `unlock(address tenderAddress, uint256 amount)`:
    - **Behavior:** Unlocks funds from a tender address.
@@ -187,6 +193,8 @@ Methods:
       - Tender address is not registered
       - Insufficient locked amount
       - You must leave the fee on the tender address (if the amount left on `tenderAddress` is less than the current fee)
+   - **Events:**
+      - Emits `TokensUnlocked(address indexed wallet, address indexed tenderAddress, uint256 amount)`
 
 5. `startDistributionPhase()`
    - **Behavior:**
@@ -216,6 +224,9 @@ Methods:
       - Burning from regular addresses is not allowed
       - Not enough balance on tender address
       - Overflow
+   - **Events:**
+      - Emits ERC-20 `Transfer(address indexed from, address indexed to, uint256 value)` with `to = address(0)`
+      - Registry emits `BurnDispatched`
 
 ### Registry
 
@@ -272,6 +283,8 @@ State-modifying methods:
       - Burning from regular addresses is not allowed
       - Not enough balance on tender address
       - Overflow
+   - **Events:**
+      - Emits `BurnDispatched(address indexed tenderAddress, uint256 fee)`
 6. `registerTenderAddress(address tenderAddress)`
    - **Behavior:** Adds an address to the set of registered tender addresses.
    - **Access:** only **Registry backend**

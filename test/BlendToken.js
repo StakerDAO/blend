@@ -1,5 +1,5 @@
 const { accounts, contract, web3 } = require('@openzeppelin/test-environment')
-const { expectRevert, BN, constants } = require('@openzeppelin/test-helpers')
+const { expectRevert, BN, expectEvent } = require('@openzeppelin/test-helpers')
 const { expect } = require('chai').use(require('chai-bn')(BN))
 const { toBN } = web3.utils
 const Registry = contract.fromArtifact('Registry')
@@ -43,13 +43,13 @@ describe('BlendToken', async function() {
     })
 
     describe('Setting registry address', async function() {
-        it('Allows owner to change registry address', async function() {
+        it('allows owner to change registry address', async function() {
             await ctx.blend.setRegistry(bob, {from: owner})
             const newRegistry = await ctx.blend.registry()
             expect(newRegistry).to.equal(bob)
         })
 
-        it('Prohibits someone else to change the registry address',
+        it('prohibits someone else to change the registry address',
             async function() {
                 await expectRevert(
                     ctx.blend.setRegistry(bob, {from: registryBackend}),
@@ -60,13 +60,13 @@ describe('BlendToken', async function() {
     })
 
     describe('Setting orchestrator address', async function() {
-        it('Allows owner to change orchestrator address', async function() {
+        it('allows owner to change orchestrator address', async function() {
             await ctx.blend.setOrchestrator(bob, {from: owner})
             const newOrchestrator = await ctx.blend.orchestrator()
             expect(newOrchestrator).to.equal(bob)
         })
 
-        it('Prohibits someone else to change the orchestrator address',
+        it('prohibits someone else to change the orchestrator address',
             async function() {
                 await expectRevert(
                     ctx.blend.setOrchestrator(bob, {from: registryBackend}),
@@ -90,6 +90,20 @@ describe('BlendToken', async function() {
             )
         })
 
+        it('emits TokensLocked event upon transfer to tender address',
+            async function() {
+                const amount = toBN('5000')
+                const receipt = await ctx.blend.transfer.sendTransaction(
+                    tenderAddress, amount, { from: alice }
+                )
+
+                expectEvent(
+                    receipt, 'TokensLocked',
+                    {wallet: alice, tenderAddress, amount}
+                )
+            }
+        )
+
         it('locks tokens upon transferFrom to tender address', async function() {
             const amount = toBN('5000')
             await ctx.blend.approve.sendTransaction(
@@ -105,6 +119,23 @@ describe('BlendToken', async function() {
                 'Unexpected locked amount after transfer to a tender address'
             )
         })
+
+        it('emits TokensLocked event upon transferFrom to tender address',
+            async function() {
+                const amount = toBN('5000')
+                await ctx.blend.approve.sendTransaction(
+                    bob, amount, { from: alice }
+                )
+                const receipt = await ctx.blend.transferFrom.sendTransaction(
+                    alice, tenderAddress, amount, { from: bob }
+                )
+
+                expectEvent(
+                    receipt, 'TokensLocked',
+                    {wallet: alice, tenderAddress, amount}
+                )
+            }
+        )
 
         it('does not lock tokens upon transfer to a regular address', async function() {
             const amount = toBN('5000')
@@ -164,21 +195,21 @@ describe('BlendToken', async function() {
         })
     })
 
-    describe('unlocks', async function() {
+    describe('unlock', async function() {
         beforeEach(async function() {
             await ctx.blend.transfer.sendTransaction(
                 tenderAddress, toBN('100'), { from: alice }
             )
         })
 
-        it('Unlocks are enabled at regurlar phase', async function() {
+        it('is enabled at regurlar phase', async function() {
             const before = await ctx.blend.balanceOf(alice)
             await ctx.blend.unlock(tenderAddress, toBN('100'), { from: alice })
             const after = await ctx.blend.balanceOf(alice)
             expect(after.sub(before)).to.be.bignumber.equal(toBN('100'))
         })
 
-        it('Unlocks are disabled at distribution phase', async function() {
+        it('is disabled at distribution phase', async function() {
             await ctx.blend.startDistributionPhase.sendTransaction({ from: orchestrator })
             await expectRevert(
                 ctx.blend.unlock(tenderAddress, toBN('100'), { from: alice }),
@@ -186,23 +217,36 @@ describe('BlendToken', async function() {
             )
         })
 
-        it('Cannot unlock more than the balance of tender address', async function() {
-            const tender2 = bob
-            await ctx.registry.registerTenderAddress(
-                tender2, { from: registryBackend }
+        it('emits TokensUnlocked event upon unlock', async function() {
+            const receipt = await ctx.blend.unlock(
+                tenderAddress, toBN('100'), { from: alice }
             )
-            await ctx.blend.transfer(
-                tender2, toBN('100'), { from: alice }
-            )
-            const tenderBalance = await ctx.blend.balanceOf(tenderAddress)
-            expect(tenderBalance).to.be.bignumber.equal(toBN('100'))
-            await expectRevert(
-                ctx.blend.unlock(tenderAddress, toBN('150'), { from: alice }),
-                'ERC20: transfer amount exceeds balance'
+
+            expectEvent(
+                receipt, 'TokensUnlocked',
+                {wallet: alice, tenderAddress, amount: toBN('100')}
             )
         })
 
-        it('Cannot unlock more than the locked amount', async function() {
+        it('cannot unlock more than the balance of tender address',
+            async function() {
+                const tender2 = bob
+                await ctx.registry.registerTenderAddress(
+                    tender2, { from: registryBackend }
+                )
+                await ctx.blend.transfer(
+                    tender2, toBN('100'), { from: alice }
+                )
+                const tenderBalance = await ctx.blend.balanceOf(tenderAddress)
+                expect(tenderBalance).to.be.bignumber.equal(toBN('100'))
+                await expectRevert(
+                    ctx.blend.unlock(tenderAddress, toBN('150'), { from: alice }),
+                    'ERC20: transfer amount exceeds balance'
+                )
+            }
+        )
+
+        it('cannot unlock more than the locked amount', async function() {
             await ctx.blend.transfer.sendTransaction(
                 bob, toBN('100'), { from: alice }
             )
@@ -218,14 +262,14 @@ describe('BlendToken', async function() {
         })
     })
 
-    describe('burns', async function() {
+    describe('burn', async function() {
         beforeEach(async function() {
             await ctx.blend.transfer.sendTransaction(
                 tenderAddress, toBN('100'), { from: alice }
             )
         })
 
-        it('Burns are enabled at distribution phase', async function() {
+        it('is enabled at distribution phase', async function() {
             await ctx.blend.startDistributionPhase({ from: orchestrator })
             await ctx.blend.burn(
                 tenderAddress, toBN('50'), { from: orchestrator }
@@ -234,7 +278,7 @@ describe('BlendToken', async function() {
             expect(remaining).to.be.bignumber.equal(toBN('50'))
         })
 
-        it('Burns are disabled at regurlar phase', async function() {
+        it('is disabled at regurlar phase', async function() {
             await expectRevert(
                 ctx.blend.burn(
                     tenderAddress, toBN('50'), { from: orchestrator }
@@ -243,7 +287,7 @@ describe('BlendToken', async function() {
             )
         })
 
-        it('Cannot burn more than the balance of tender address', async function() {
+        it('cannot burn more than the balance of tender address', async function() {
             await ctx.blend.startDistributionPhase({ from: orchestrator })
             await expectRevert(
                 ctx.blend.burn(
@@ -253,7 +297,7 @@ describe('BlendToken', async function() {
             )
         })
 
-        it('Cannot burn from a regurlar address', async function() {
+        it('cannot burn from a regurlar address', async function() {
             await ctx.blend.startDistributionPhase({ from: orchestrator })
             await expectRevert(
                 ctx.blend.burn(

@@ -13,6 +13,18 @@ contract BlendToken is Initializable, Ownable, ERC20, ERC20Detailed {
     Registry public registry;
     address public orchestrator;
 
+    event TokensLocked(
+        address indexed wallet,
+        address indexed tenderAddress,
+        uint256 amount
+    );
+
+    event TokensUnlocked(
+        address indexed wallet,
+        address indexed tenderAddress,
+        uint256 amount
+    );
+
     modifier onlyOrchestrator() {
         require(
             _msgSender() == orchestrator,
@@ -55,6 +67,7 @@ contract BlendToken is Initializable, Ownable, ERC20, ERC20Detailed {
     {
         if (registry.isTenderAddress(recipient)) {
             registry.recordTransfer(_msgSender(), recipient, amount);
+            emit TokensLocked(_msgSender(), recipient, amount);
         }
         return super.transfer(recipient, amount);
     }
@@ -65,6 +78,7 @@ contract BlendToken is Initializable, Ownable, ERC20, ERC20Detailed {
     {
         if (registry.isTenderAddress(recipient)) {
             registry.recordTransfer(sender, recipient, amount);
+            emit TokensLocked(sender, recipient, amount);
         }
         return super.transferFrom(sender, recipient, amount);
     }
@@ -91,6 +105,7 @@ contract BlendToken is Initializable, Ownable, ERC20, ERC20Detailed {
         );
         _transfer(tenderAddress, _msgSender(), amount);
         registry.recordUnlock(tenderAddress, _msgSender(), amount);
+        emit TokensUnlocked(_msgSender(), tenderAddress, amount);
     }
 
     /// @notice Starts token distribution. This prohibits token

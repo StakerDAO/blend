@@ -1,5 +1,5 @@
-function withErrors(command) {
-    return async (...args) => {
+function withErrors(command: Function) {
+    return async (...args: any[]) => {
         try {
             await command(...args)
             process.exit(0)
@@ -10,4 +10,4 @@ function withErrors(command) {
     }
 }
 
-module.exports = withErrors
+export default withErrors

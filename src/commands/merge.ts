@@ -1,12 +1,24 @@
-const validFilename = require('valid-filename')
-const { promptIfNeeded } = require('../prompt')
-const { MultisigTx } = require('../multisig')
-const withErrors = require('../utils/withErrors')
+import validFilename from 'valid-filename'
+import { promptIfNeeded } from '../prompt'
+import { MultisigAction } from '../multisig'
+import withErrors from '../utils/withErrors'
+import { NetworkName } from '../types'
 
-async function merge(inputFile1, inputFile2, otherInputs, options) {
+
+interface MergeArguments {
+    network: NetworkName
+    outputFile: string
+}
+
+async function merge(
+    inputFile1: string,
+    inputFile2: string,
+    otherInputs: string[],
+    options: Partial<MergeArguments>
+) {
     const inputFiles = [inputFile1, inputFile2, ...otherInputs]
     const inputTxs = await Promise.all(
-        inputFiles.map(file => MultisigTx.fromFile(file))
+        inputFiles.map(file => MultisigAction.fromFile(file))
     )
     checkAllEqual(inputTxs)
 
@@ -14,13 +26,13 @@ async function merge(inputFile1, inputFile2, otherInputs, options) {
         type: 'input',
         name: 'outputFile',
         message: 'File to write the merged transaction to',
-        validate: async outputFile =>
+        validate: async (outputFile: string) =>
             validFilename(outputFile) ||
             `${outputFile} is not a valid file name`,
     }]
-    const args = await promptIfNeeded(options, questions)
+    const args = await promptIfNeeded(options, questions) as MergeArguments
 
-    const mergedTx = new MultisigTx({
+    const mergedTx = new MultisigAction({
         action: inputTxs[0].action,
         payload: inputTxs[0].payload,
         signatures: inputTxs.reduce((acc, tx) => {
@@ -31,9 +43,9 @@ async function merge(inputFile1, inputFile2, otherInputs, options) {
     await mergedTx.save(args.outputFile)
 }
 
-function checkAllEqual(inputTxs) {
-    const hashes = inputTxs.map(tx => tx.hash())
-    const allEqual = hashes.every(h => h === hashes[0])
+function checkAllEqual(inputTxs: MultisigAction[]) {
+    const hashes = inputTxs.map((tx: MultisigAction) => tx.hash())
+    const allEqual = hashes.every((h: string) => h === hashes[0])
     if (!allEqual) {
         throw new Error(
             'Failed to merge: the supplied files contain different transactions'
@@ -41,7 +53,7 @@ function checkAllEqual(inputTxs) {
     }
 }
 
-function register(program) {
+function register(program: any) {
     program
         .command('merge <file_1> <file_2> [file_N...]')
         .description(
@@ -56,6 +68,6 @@ function register(program) {
         .action(withErrors(merge))
 }
 
-module.exports = {
+export {
     register
 }

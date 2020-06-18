@@ -1,19 +1,26 @@
-const fs = require('fs')
-const { promisify } = require('util')
+import * as fs from 'fs'
+import { promisify } from 'util'
+import { promptAndLoadEnv, promptIfNeeded } from '../prompt'
+import { MultisigAction, TransactionPayload } from '../multisig'
+import withErrors from '../utils/withErrors'
+import { BlendEnvironment } from '../utils/environment'
+import { NetworkName } from '../types'
 const readFile = promisify(fs.readFile)
-const { promptAndLoadEnv, promptIfNeeded } = require('../prompt')
-const { MultisigTx } = require('../multisig')
-const withErrors = require('../utils/withErrors')
 
 
-const caseInsensitiveCompare = (lhs, rhs) => {
+interface SubmitArguments {
+    network: NetworkName
+    inputFile: string
+}
+
+const caseInsensitiveCompare = (lhs: string, rhs: string) => {
     return lhs.localeCompare(rhs, 'en', {sensitivity: 'base'})
 }
 
-async function upgrade(blendEnv, tx) {
-    const { payload } = tx
+async function makeTransaction(env: BlendEnvironment, tx: MultisigAction) {
+    const payload = tx.payload as TransactionPayload
     const msig =
-        await blendEnv.getContract('Multisig', payload.multisigAddress)
+        env.getContract('Multisig', payload.multisigAddress)
 
     // The contract expects signatures to be provided in author-ascending
     // order, hence we sort signatures by authors here
@@ -23,33 +30,32 @@ async function upgrade(blendEnv, tx) {
         .map(addr => fixSignature(tx.signatures[addr]))
 
     try {
-        const gas = await msig.execute(
+        const gas = await msig.methods.execute(
             payload.targetAddress,
             payload.txValue,
             payload.txData,
-            signatures,
-            { from: blendEnv.from }
-        )
+            signatures
+        ).send({ from: env.from })
         console.log('Gas required: ', gas)
     } catch (err) {
         console.error(err)
     }
 }
 
-async function makeQuestions(blendEnv) {
-    const existingAccounts = await blendEnv.web3.eth.getAccounts()
+async function makeQuestions(env: BlendEnvironment) {
+    const existingAccounts = await env.web3.eth.getAccounts()
     return [
         {
             type: 'file-tree-selection',
             name: 'inputFile',
             message: 'Transaction to send (JSON file)',
-            validate: MultisigTx.validateFile,
+            validate: MultisigAction.validateFile,
             cwd: process.cwd(),
         },
     ]
 }
 
-function fixSignature(signature) {
+function fixSignature(signature: string) {
     // in geth its always 27/28, in ganache its 0/1. Change to 27/28 to prevent
     // signature malleability if version is 0/1
     // see https://github.com/ethereum/go-ethereum/blob/v1.8.23/internal/ethapi/api.go#L465
@@ -61,18 +67,18 @@ function fixSignature(signature) {
     return signature.slice(0, 130) + vHex;
 }
 
-async function submit(inputFile, options) {
+async function submit(inputFile: string, options: Partial<SubmitArguments>) {
     options.inputFile = inputFile
     const blendEnv = await promptAndLoadEnv({networkInOpts: options.network})
     const questions = await makeQuestions(blendEnv)
-    const args = await promptIfNeeded(options, questions)
-    const tx = await MultisigTx.fromFile(args.inputFile)
-    if (tx.action == 'upgrade') {
-        await upgrade(blendEnv, tx, args.from)
+    const args = await promptIfNeeded(options, questions as any) as SubmitArguments
+    const tx = await MultisigAction.fromFile(args.inputFile)
+    if (tx.action == 'transaction') {
+        await makeTransaction(blendEnv, tx)
     }
 }
 
-function register(program) {
+function register(program: any) {
     program
         .command('submit [input_file]')
         .description(
@@ -83,4 +89,4 @@ function register(program) {
         .action(withErrors(submit))
 }
 
-module.exports = { register }
+export { register }

@@ -1,6 +1,6 @@
 const fs = require('fs')
 const { promisify } = require('util')
-const Oz = require('@openzeppelin/cli')
+const oz = require('@openzeppelin/cli')
 const validFilename = require('valid-filename')
 const { promptAndLoadEnv, promptIfNeeded } = require('../prompt')
 const { MultisigTx } = require('../multisig')
@@ -9,12 +9,14 @@ const ProxyAbi = require('../assets/AdminUpgradeabilityProxy.abi.json')
 
 
 async function pushNextVersion(blendEnv) {
-    const oz = Oz.scripts
-    oz.add({ contractsData: [{ name: 'BlendToken', alias: 'BlendToken' }] })
-    await oz.push({ reupload: true, deployDependencies: true, ...blendEnv.ozOptions })
+    oz.scripts.add({
+        contractsData: [{ name: 'BlendToken', alias: 'BlendToken' }]
+    })
+    await oz.scripts.push({
+        reupload: true, deployDependencies: true, ...blendEnv.ozOptions
+    })
 
-    const networkFile = blendEnv.getNetworkController().networkFile
-    const newAddress = networkFile.contracts['BlendToken'].address
+    const newAddress = blendEnv.getImplementation('BlendToken').address
     console.log(
         `\nNew implementation address: ${newAddress}. \n`
     )

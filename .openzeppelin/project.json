@@ -2,8 +2,7 @@
   "manifestVersion": "2.2",
   "contracts": {
     "BlendToken": "BlendToken",
-    "Registry": "Registry",
-    "ERC20Stub": "ERC20Stub"
+    "Registry": "Registry"
   },
   "name": "staker-blend",
   "version": "0.1.0",

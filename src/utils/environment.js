@@ -1,40 +1,69 @@
-const Resolver = require('@truffle/resolver')
+// SPDX-FileCopyrightText: 2020 StakerDAO
+//
+// SPDX-License-Identifier: MPL-2.0
+
 const oz = require('@openzeppelin/cli')
-const Web3 = require('web3')
-const { Loggy } = require('@openzeppelin/upgrades')
+const { Loggy, Contracts, ZWeb3 } = require('@openzeppelin/upgrades')
 
 
 class BlendEnvironment {
-    constructor({network, ozOptions, truffleOptions}) {
+    constructor({network, ozOptions}) {
         this.network = network
         this.ozOptions = ozOptions
+        this.txParams = ozOptions.txParams
         this.from = ozOptions.txParams.from
-        this.truffleOptions = oz.ConfigManager.config.getConfig()
-        this.web3 = new Web3(truffleOptions.provider)
-        this.artifacts = new Resolver(truffleOptions)
+        this.web3 = ZWeb3
+        this._nc = new oz.network.NetworkController(network, ozOptions)
     }
 
-    getNetworkController() {
-        return new oz.network.NetworkController(
-            this.ozOptions.network, this.ozOptions.txParams
+    updateController() {
+        this._nc = new oz.network.NetworkController(
+            this.network, this.ozOptions
         )
     }
 
-    async getContract(name, address) {
-        try {
-            const Contract = this.artifacts.require(name)
-            if (address) {
-                return await Contract.at(address)
-            }
-            return await Contract.deployed()
-        } catch (err) {
-            console.log(
-                `The CLI was unable to find the address of the "${name}" ` +
-                `contract on "${ this.network }" network. Make sure to run ` +
-                `\`blend deploy\` to deploy the "${name}" contract.\n`
-            )
-            throw err
+    getNetworkController() {
+        return this._nc
+    }
+
+    getImplementation(name) {
+        return this._nc.networkFile.contracts[name]
+    }
+
+    getContractInfo(name) {
+        const candidates = this._nc.networkFile.getProxies({
+            package: 'staker-blend',
+            contract: name
+        })
+        if (candidates.length < 1) {
+            throw Error('Could not find contract')
         }
+        if (candidates.length > 1) {
+            console.log(candidates)
+            throw Error('Contract name is not unique')
+        }
+        return candidates[0]
+    }
+
+    getContractAddress(name) {
+        return this.getContractInfo(name).address
+    }
+
+    getContract(name, address) {
+        const contract = Contracts.getFromLocal(name)
+        if (!address) {
+            try {
+                address = this.getContractAddress(name)
+            } catch (err) {
+                console.log(
+                    `The CLI was unable to find the address of the "${name}" ` +
+                    `contract on "${ this.network }" network. Make sure to run ` +
+                    `\`blend deploy\` to deploy the "${name}" contract.\n`
+                )
+                throw err
+            }
+        }
+        return contract.at(address)
     }
 }
 
@@ -49,16 +78,13 @@ async function loadProjectEnv({ network, from }) {
         const ozOptions =
             await oz.ConfigManager.initNetworkConfiguration({ network, from })
 
-        const truffleOptions = oz.ConfigManager.config.getConfig()
-        return new BlendEnvironment({
-            network, ozOptions, truffleOptions
-        })
+        return new BlendEnvironment({ network, ozOptions })
     } catch (err) {
         console.log(
             'There was an error while accessing the node. ' +
             `Please check that the specified network (${ network }) ` +
             'is accessible and the configuration is in line with ' +
-            'your `truffle-config.js` file. \n'
+            'your `networks.js` file. \n'
         )
         throw err
     }

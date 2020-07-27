@@ -59,34 +59,34 @@ contract Orchestrator is Ownable {
 
     /// @notice Rotates the key of the distribution backend
     /// @param newBackend New backend address
-    function setDistributionBackend(address newBackend) public onlyOwner {
+    function setDistributionBackend(address newBackend) external onlyOwner {
         distributionBackend = newBackend;
     }
 
     /// @notice Sets a new USDC pool address. Tokens from USDC pool
     ///         will be used during orders execution.
     /// @param pool The address of the pool
-    function setUsdcPool(address pool) public onlyOwner {
+    function setUsdcPool(address pool) external onlyOwner {
         usdcPool = pool;
     }
 
     /// @notice Sends all BLEND tokens associated with the Orchestrator
     ///         to the owner of the contract.
-    function collectBlend() public onlyOwner {
+    function collectBlend() external onlyOwner {
         blend.transfer(owner(), blend.balanceOf(address(this)));
     }
 
     /// @notice Starts token distribution. This prohibits token
     ///         unlocks and allows burning tokens from tender
     ///         addresses.
-    function startDistribution() public onlyBackend {
+    function startDistribution() external onlyBackend {
         blend.startDistributionPhase();
     }
 
     /// @notice Ends token distribution. This action reverts BLND
     ///         to the regurlar phase, i.e. unlocks are allowed,
     ///         and burns are prohibited.
-    function stopDistribution() public onlyBackend {
+    function stopDistribution() external onlyBackend {
         blend.stopDistributionPhase();
     }
 
@@ -95,7 +95,7 @@ contract Orchestrator is Ownable {
     ///         partially. In case of other errors, the transaction
     ///         fails.
     /// @param orders The orders to execute
-    function executeOrders(Order[] memory orders) public onlyBackend {
+    function executeOrders(Order[] calldata orders) external onlyBackend {
         require(
             blend.distributionPhase(),
             "Current phase does not allow distribution"

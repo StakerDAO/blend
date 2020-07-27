@@ -34,7 +34,7 @@ contract Registry is Initializable, Ownable {
     }
 
     function initialize(address blendToken, address backend)
-        public
+        external
         initializer
     {
         Ownable.initialize(_msgSender());
@@ -45,7 +45,7 @@ contract Registry is Initializable, Ownable {
     /// @notice Sets a new registry backend address. Registry backend
     ///         can set fees and register new tender addresses.
     /// @param newBackend New backend address
-    function setRegistryBackend(address newBackend) public onlyOwner {
+    function setRegistryBackend(address newBackend) external onlyOwner {
         registryBackend = newBackend;
     }
 
@@ -54,7 +54,7 @@ contract Registry is Initializable, Ownable {
     //          one has to send to a tender address or leave on a tender
     //          address while unlocking the funds.
     /// @param newFee New fee
-    function setFeePerAddress(uint256 newFee) public onlyBackend {
+    function setFeePerAddress(uint256 newFee) external onlyBackend {
         feePerAddress = newFee;
     }
 
@@ -67,7 +67,7 @@ contract Registry is Initializable, Ownable {
         address tenderAddress,
         uint256 amount
     )
-        public
+        external
         onlyBlend
     {
         require(
@@ -98,7 +98,7 @@ contract Registry is Initializable, Ownable {
         address to,
         uint256 amount
     )
-        public
+        external
         onlyBlend
     {
         require(
@@ -137,7 +137,7 @@ contract Registry is Initializable, Ownable {
     /// @param orderAmount The total amount to burn
     /// @return Fee for the execution
     function dispatchBurn(address tenderAddress, uint256 orderAmount)
-        public
+        external
         onlyBlend
         returns (uint256 totalFee)
     {

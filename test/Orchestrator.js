@@ -129,7 +129,7 @@ describe('Orchestrator', async function() {
             expect(tenderBlendBalance).to.be.bignumber.equal(toBN('0'))
         })
 
-        it('executes a partial order bound by USDC', async function() {
+        it('fails on order bound by USDC', async function() {
             const orders = [
                 {
                     redeemerTenderAddress: tenderAddress,
@@ -138,11 +138,10 @@ describe('Orchestrator', async function() {
                     amount: 100
                 }
             ]
-            await ctx.orchestrator.executeOrders(orders, {from: distributionBackend})
-            const aliceUsdcBalance = await ctx.usdcToken.balanceOf(alice)
-            const tenderBlendBalance = await ctx.blend.balanceOf(tenderAddress)
-            expect(aliceUsdcBalance).to.be.bignumber.equal(toBN('1000'))
-            expect(tenderBlendBalance).to.be.bignumber.equal(toBN('90'))
+            await expectRevert(
+                ctx.orchestrator.executeOrders(orders, {from: distributionBackend}),
+                'ERC20: transfer amount exceeds allowance'
+            )
         })
 
         it('fails on order bound by BLEND', async function() {
@@ -160,49 +159,49 @@ describe('Orchestrator', async function() {
             )
         })
 
-        it('rounds BLEND amount up', async function() {
+        it('rounds USDC amount down', async function() {
             const orders = [
                 {
                     redeemerTenderAddress: tenderAddress,
                     redeemerWallet: alice,
-                    price: priceToBN('333').toString(),
-                    amount: 150
+                    price: priceToBN('333.3333').toString(),
+                    amount: 3
                 }
             ]
             await ctx.orchestrator.executeOrders(orders, {from: distributionBackend})
             const aliceUsdcBalance = await ctx.usdcToken.balanceOf(alice)
             const tenderBlendBalance = await ctx.blend.balanceOf(tenderAddress)
             const blendDelta = toBN('100').sub(tenderBlendBalance)
-            expect(aliceUsdcBalance).to.be.bignumber.equal(toBN('1000'))
-            expect(blendDelta).to.be.bignumber.equal(toBN('4'))
+            expect(aliceUsdcBalance).to.be.bignumber.equal(toBN('999'))
+            expect(blendDelta).to.be.bignumber.equal(toBN('3'))
         })
 
-        it('executes two orders: full & partial', async function() {
+        it('executes three orders', async function() {
             const orders = [
                 {
                     redeemerTenderAddress: tenderAddress,
                     redeemerWallet: alice,
                     price: priceToBN('2').toString(),
-                    amount: 50
+                    amount: 10
                 },
                 {
                     redeemerTenderAddress: tenderAddress,
                     redeemerWallet: alice,
-                    price: priceToBN('100').toString(),
-                    amount: 100
+                    price: priceToBN('10').toString(),
+                    amount: 80
                 },
                 {
                     redeemerTenderAddress: tenderAddress,
                     redeemerWallet: alice,
-                    price: priceToBN('100').toString(),
-                    amount: 100
+                    price: priceToBN('20').toString(),
+                    amount: 9
                 }
             ]
             await ctx.orchestrator.executeOrders(orders, {from: distributionBackend})
             const aliceUsdcBalance = await ctx.usdcToken.balanceOf(alice)
             const tenderBlendBalance = await ctx.blend.balanceOf(tenderAddress)
             expect(aliceUsdcBalance).to.be.bignumber.equal(toBN('1000'))
-            expect(tenderBlendBalance).to.be.bignumber.equal(toBN('41'))
+            expect(tenderBlendBalance).to.be.bignumber.equal(toBN('1'))
         })
     })
 })

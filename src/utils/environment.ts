@@ -2,12 +2,23 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-const oz = require('@openzeppelin/cli')
-const { Loggy, Contracts, ZWeb3 } = require('@openzeppelin/upgrades')
+import * as oz from '@openzeppelin/cli'
+import { Loggy, Contract, Contracts, ZWeb3 } from '@openzeppelin/upgrades'
+import { Address, NetworkName } from '../types'
 
 
-class BlendEnvironment {
-    constructor({network, ozOptions}) {
+type ContractInfo = any
+
+class _BlendEnvironment {
+    network: NetworkName
+    ozOptions: any
+    txParams: any
+    from: Address
+    web3: typeof ZWeb3
+    _nc: any
+
+    constructor(args: {network: NetworkName, ozOptions: any}) {
+        const {network, ozOptions} = args
         this.network = network
         this.ozOptions = ozOptions
         this.txParams = ozOptions.txParams
@@ -26,11 +37,11 @@ class BlendEnvironment {
         return this._nc
     }
 
-    getImplementation(name) {
+    getImplementation(name: string): ContractInfo {
         return this._nc.networkFile.contracts[name]
     }
 
-    getContractInfo(name) {
+    getContractInfo(name: string): ContractInfo {
         const candidates = this._nc.networkFile.getProxies({
             package: 'staker-blend',
             contract: name
@@ -45,11 +56,11 @@ class BlendEnvironment {
         return candidates[0]
     }
 
-    getContractAddress(name) {
+    getContractAddress(name: string): Address {
         return this.getContractInfo(name).address
     }
 
-    getContract(name, address) {
+    getContract(name: string, address?: Address): Contract {
         const contract = Contracts.getFromLocal(name)
         if (!address) {
             try {
@@ -67,9 +78,15 @@ class BlendEnvironment {
     }
 }
 
-// Loads Truffle resolver, Openzeppelin CLI and
+type BlendEnvironment = _BlendEnvironment
+type EnvironmentParameters = {
+    network: NetworkName,
+    from?: Address
+}
+
+// Loads network configuration, Openzeppelin CLI and
 // a compatible Web3 instance for the specified network
-async function loadProjectEnv({ network, from }) {
+async function loadProjectEnv({ network, from }: EnvironmentParameters) {
     try {
         oz.stdout.silent(false)
         Loggy.silent(false)
@@ -78,7 +95,7 @@ async function loadProjectEnv({ network, from }) {
         const ozOptions =
             await oz.ConfigManager.initNetworkConfiguration({ network, from })
 
-        return new BlendEnvironment({ network, ozOptions })
+        return new _BlendEnvironment({ network, ozOptions })
     } catch (err) {
         console.log(
             'There was an error while accessing the node. ' +
@@ -94,7 +111,8 @@ function getNetworks() {
     return oz.ConfigManager.getNetworkNamesFromConfig()
 }
 
-module.exports = {
+export {
+    BlendEnvironment,
     loadProjectEnv,
     getNetworks,
 }

@@ -1,13 +1,21 @@
 #!/usr/bin/env node
 
-const commands = require('../src/commands')
+const commands = requireCLI()
 const program = require('commander')
+
+function requireCLI() {
+    try {
+        return require('../dist/commands')
+    } catch (error) {
+        throw Error('Could not find the compiled CLI. Tru running `npm run build`')
+    }
+}
 
 async function main() {
     Object.values(commands).forEach(command => {
         command.register(program)
     })
-    await program.parse(process.argv)
+    program.parse(process.argv)
 }
 
 main().catch(e => console.error(e))

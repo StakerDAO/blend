@@ -1,60 +1,61 @@
+
 // SPDX-FileCopyrightText: 2020 StakerDAO
 //
 // SPDX-License-Identifier: MPL-2.0
 
-const oz = require('@openzeppelin/cli')
-const { spawnSync } = require('child_process')
-const Utils = require('web3-utils')
-const { promptAndLoadEnv, promptIfNeeded } = require('../prompt')
-const withErrors = require('../utils/withErrors')
+import { spawnSync } from 'child_process'
+import * as oz from '@openzeppelin/cli'
+import * as Utils from 'web3-utils'
+import { promptAndLoadEnv, promptIfNeeded } from '../prompt'
+import withErrors from '../utils/withErrors'
+import { Address, BN, NetworkName } from '../types'
+import { BlendEnvironment } from '../utils/environment'
 
-async function deploy(owner1, otherOwners, options) {
-    const owners = [owner1, ...otherOwners]
-    owners.forEach(owner => {
+
+interface DeploymentArguments {
+    network: NetworkName
+    owners: Address[]
+    threshold: Number
+    initialHolder: Address
+    supply: BN
+    distributionBackend: Address
+    registryBackend: Address
+    usdcPool: Address
+    usdc: Address
+}
+
+type CmdlineOptions = Partial<DeploymentArguments>
+
+async function deploy(
+    owner1: Address,
+    otherOwners: Address[],
+    options: CmdlineOptions
+): Promise<void> {
+    options.owners = [owner1, ...otherOwners]
+    options.owners.forEach(owner => {
         if (!Utils.isAddress(owner)) {
             throw new Error(`${owner} is not a valid Ethereum address`)
         }
     })
     const env = await promptAndLoadEnv({ networkInOpts: options.network })
-    const questions = makeQuestions(env, owners)
-    const args = await promptIfNeeded(options, questions)
-
-    // We spawn a `truffle migrate` process because truffle doesn't
-    // expose any javascript utilities to invoke migrations from
-    // JS code so far. We pass deployment options via environment
-    // variables because currently `truffle migrate` doesn't support
-    // user-defined command line arguments.
-    // Since it is the last action executed, we can safely invoke
-    // the synchronous version of the comand.
-    /*console.log('Invoking `truffle migrate` with the supplied options...')
-    spawnSync(
-        'npx truffle migrate',
-        ['--network', blendEnv.network],
-        {
-            stdio: 'inherit',
-            shell: true,
-            env: {
-                BLEND_MSIG_OWNERS: JSON.stringify(owners),
-                BLEND_MSIG_THRESHOLD: args.threshold,
-                BLEND_MINTER: args.minter,
-                BLEND_SUPPLY: Utils.toWei(args.supply),
-                ...process.env
-            }
-        }
-    )
-    */
+    const questions = makeQuestions(options.owners)
+    const args = await promptIfNeeded(options, questions) as DeploymentArguments
 
     updateProjectFile()
-    await deployToNetwork(env, { owners, ...args })
+    await deployToNetwork(env, args)
     await initialize(env, args)
 }
 
-async function deployRegularContract(env, contractName, deployArgs) {
+async function deployRegularContract(
+    env: BlendEnvironment,
+    contractName: string,
+    args: any
+) {
     const nc = env.getNetworkController()
 
     try {
         const instance = await nc.createInstance(
-            'staker-blend', contractName, deployArgs
+            'staker-blend', contractName, args
         )
         return instance.address
     } finally {
@@ -71,7 +72,10 @@ function updateProjectFile() {
     })
 }
 
-async function deployToNetwork(env, args) {
+async function deployToNetwork(
+    env: BlendEnvironment,
+    args: DeploymentArguments
+) {
     const { network, txParams } = env
 
     console.log('Deploying Multisig...')
@@ -108,16 +112,19 @@ async function deployToNetwork(env, args) {
             env.getContractAddress('BlendToken'),
             env.getContractAddress('Registry'),
             args.usdcPool,
-            env.getContractAddress('BlendToken'), //'0x594f4860Aa89939f8BD69fd38d09FB75DC92C909', // args.usdc,
+            args.usdc,
         ]
     )
     env.updateController()
 }
 
-async function initialize(env, {initialHolder, supply, registryBackend}) {
-    const blend = await env.getContract('BlendToken')
-    const registry = await env.getContract('Registry')
-    const orchestrator = await env.getContract('Orchestrator')
+async function initialize(
+    env: BlendEnvironment,
+    {initialHolder, supply, registryBackend}: DeploymentArguments
+) {
+    const blend = env.getContract('BlendToken')
+    const registry = env.getContract('Registry')
+    const orchestrator = env.getContract('Orchestrator')
 
     const initializeBlend =
         blend.methods['initialize(address,uint256,address,address)']
@@ -149,13 +156,13 @@ async function initialize(env, {initialHolder, supply, registryBackend}) {
     ).send({ from: env.from })
 }
 
-function makeQuestions(blendEnv, owners) {
+function makeQuestions(owners: Address[]) {
     return [
         {
             type: 'number',
             name: 'threshold',
             message: `Multisig threshold (1 <= N <= ${owners.length})`,
-            validate: async threshold => {
+            validate: async (threshold: Number) => {
                 if (threshold < 1 || threshold > owners.length) {
                     return `Threshold must be in range [1, ${owners.length}]`
                 }
@@ -175,7 +182,7 @@ function makeQuestions(blendEnv, owners) {
             type: 'input',
             name: 'supply',
             message: 'Total supply (in BLEND tokens)',
-            validate: async value => {
+            validate: async (value: string) => {
                 try {
                     Utils.toWei(value)
                     return true
@@ -211,12 +218,12 @@ function makeQuestions(blendEnv, owners) {
     ]
 }
 
-async function ensureAddress(address) {
+async function ensureAddress(address: Address) {
     return Utils.isAddress(address) ||
            `${address} is not a valid Ethereum address`
 }
 
-function register(program) {
+function register(program: any) {
     program
         .command('deploy <owner1> [owners...]')
         .usage('deploy <keys...>')
@@ -229,6 +236,10 @@ function register(program) {
         .option('--threshold <threshold>', 'signatures threshold')
         .option('--initial-holder <address>', 'BLEND initial holder address')
         .option('--supply <amount>', 'BLEND token supply')
+        .option('--registry-backend <address>', 'Registry backend address')
+        .option('--distribution-backend <address>', 'Distribution backend address')
+        .option('--usdc-pool <address>', 'USDC pool address')
+        .option('--usdc <address>', 'USDC token contract address')
         .action(withErrors(deploy))
 }
 

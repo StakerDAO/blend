@@ -22,9 +22,13 @@ async function pushNextVersion(
         contractsData: [{ name: contractName, alias: contractName }]
     })
     await oz.scripts.push({
-        reupload: true, deployDependencies: true, ...env.ozOptions
+        contracts: [contractName],
+        reupload: false,
+        deployDependencies: true,
+        ...env.ozOptions
     })
 
+    env.updateController()
     const newAddress = env.getImplementation(contractName).address
     console.log(
         `\nNew implementation address: ${newAddress}. \n`
@@ -44,28 +48,28 @@ async function upgrade(options: Partial<UpgradeArguments>) {
                 `${outputFile} is not a valid file name`,
         },
         {
-            type: 'input',
+            type: 'list',
             name: 'contractName',
             message: 'Choose a contract to upgrade',
-            choices: ['BlendToken', 'Orchestrator'],
+            choices: ['BlendToken', 'Registry'],
         },
     ]) as UpgradeArguments
     console.log('Publishing the new implementation')
     const nextImpl = await pushNextVersion(env, args.contractName)
     console.log(nextImpl)
     const proxy = env.getContractAddress(args.contractName)
-    const proxyAdmin = {} as any  // env.getProxyAdmin()
+    const proxyAdmin = env.getProxyAdmin()
     console.log('From: ', env.from)
-    const tx = proxyAdmin.methods.upgrade(proxy, nextImpl).encodeABI({
+    const tx = proxyAdmin.contract.methods.upgrade(proxy, nextImpl).encodeABI({
         from: env.from
     })
     console.log('Tx: ', tx)
     const msig = env.getContract('Multisig')
     console.log('Multisig: ', msig.address)
-    const nonce = (await msig.methods.nonce().call()).toNumber()
+    const nonce = parseInt(await msig.methods.nonce().call())
     console.log('Nonce: ', nonce)
     const msigTx = new MultisigAction({
-        action: 'upgrade',
+        action: 'transaction',
         payload: {
             multisigAddress: msig.address,
             targetAddress: proxyAdmin.address,

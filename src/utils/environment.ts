@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import * as oz from '@openzeppelin/cli'
-import { Loggy, Contract, Contracts, ZWeb3 } from '@openzeppelin/upgrades'
+import { Loggy, Contract, Contracts, ProxyAdmin, ZWeb3 } from '@openzeppelin/upgrades'
 import { Address, NetworkName } from '../types'
 
 
@@ -35,6 +35,10 @@ class _BlendEnvironment {
 
     getNetworkController() {
         return this._nc
+    }
+
+    getProxyAdmin() {
+        return ProxyAdmin.fetch(this._nc.proxyAdminAddress, this.txParams)
     }
 
     getImplementation(name: string): ContractInfo {

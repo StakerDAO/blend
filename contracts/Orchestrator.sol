@@ -59,34 +59,34 @@ contract Orchestrator is Ownable {
 
     /// @notice Rotates the key of the distribution backend
     /// @param newBackend New backend address
-    function setDistributionBackend(address newBackend) public onlyOwner {
+    function setDistributionBackend(address newBackend) external onlyOwner {
         distributionBackend = newBackend;
     }
 
     /// @notice Sets a new USDC pool address. Tokens from USDC pool
     ///         will be used during orders execution.
     /// @param pool The address of the pool
-    function setUsdcPool(address pool) public onlyOwner {
+    function setUsdcPool(address pool) external onlyOwner {
         usdcPool = pool;
     }
 
     /// @notice Sends all BLEND tokens associated with the Orchestrator
     ///         to the owner of the contract.
-    function collectBlend() public onlyOwner {
+    function collectBlend() external onlyOwner {
         blend.transfer(owner(), blend.balanceOf(address(this)));
     }
 
     /// @notice Starts token distribution. This prohibits token
     ///         unlocks and allows burning tokens from tender
     ///         addresses.
-    function startDistribution() public onlyBackend {
+    function startDistribution() external onlyBackend {
         blend.startDistributionPhase();
     }
 
     /// @notice Ends token distribution. This action reverts BLND
     ///         to the regurlar phase, i.e. unlocks are allowed,
     ///         and burns are prohibited.
-    function stopDistribution() public onlyBackend {
+    function stopDistribution() external onlyBackend {
         blend.stopDistributionPhase();
     }
 
@@ -95,23 +95,17 @@ contract Orchestrator is Ownable {
     ///         partially. In case of other errors, the transaction
     ///         fails.
     /// @param orders The orders to execute
-    function executeOrders(Order[] memory orders) public onlyBackend {
+    function executeOrders(Order[] calldata orders) external onlyBackend {
         require(
             blend.distributionPhase(),
             "Current phase does not allow distribution"
         );
         uint256 lastPrice = 0;
-        for (uint i = 0; i < orders.length; i++) {
+        uint ordersCount = orders.length;
+        for (uint i = 0; i < ordersCount; i++) {
             require(orders[i].price >= lastPrice, "Orders must be sorted");
-            uint256 usdcLeft = usdc.balanceOf(usdcPool);
-            uint256 allowanceLeft = usdc.allowance(usdcPool, address(this));
-            uint256 maxUsdc = _min(usdcLeft, allowanceLeft);
-            if (maxUsdc > 0) {
-                _executeOrder(orders[i], maxUsdc);
-                lastPrice = orders[i].price;
-            } else {
-                break;
-            }
+            _executeOrder(orders[i]);
+            lastPrice = orders[i].price;
         }
     }
 
@@ -119,15 +113,10 @@ contract Orchestrator is Ownable {
     ///      USDC. Fails in case the order can not be executed (due to
     ///      insufficient BLND balance or non-existent tender address).
     /// @param order The order to execute
-    /// @param maxUsdc Maximum amount of USDC that can be spent on execution
     /// @return Whether the order has been executed
-    function _executeOrder(Order memory order, uint256 maxUsdc) private {
+    function _executeOrder(Order memory order) private {
         uint256 blendAmount = order.amount;
         uint256 usdcAmount = _blendToUsdc(blendAmount, order.price);
-        if (usdcAmount > maxUsdc) {
-            usdcAmount = maxUsdc;
-            blendAmount = _usdcToBlend(usdcAmount, order.price);
-        }
 
         blend.burn(order.redeemerTenderAddress, blendAmount);
         usdc.transferFrom(usdcPool, order.redeemerWallet, usdcAmount);
@@ -147,22 +136,6 @@ contract Orchestrator is Ownable {
     {
         uint256 usdcAmountScaled = blendAmount.mul(price);
         return usdcAmountScaled.div(PRICE_MULTIPLIER);
-    }
-
-    /// @dev Given some fixed-point price, converts USDC to BLEND.
-    ///      The integral result may be MORE than the actual fixed-point
-    ///      value but never less, i.e. this function may OVERESTIMATE
-    ///      the required amount of BLEND.
-    /// @param usdcAmount USDC amount
-    /// @param price Fixed-point price (actual price * PRICE_MULTIPLIER)
-    /// @return BLEND amount
-    function _usdcToBlend(uint256 usdcAmount, uint256 price)
-        private
-        pure
-        returns (uint256 blendAmount)
-    {
-        uint256 usdcAmountScaled = usdcAmount.mul(PRICE_MULTIPLIER);
-        return _ceilDiv(usdcAmountScaled, price);
     }
 
     /// @dev Divides two values and returns a ceiling of the result

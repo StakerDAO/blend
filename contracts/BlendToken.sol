@@ -42,7 +42,7 @@ contract BlendToken is Initializable, Ownable, ERC20, ERC20Detailed {
         public
         initializer
     {
-        ERC20Detailed.initialize("Blend Token", "BLEND", 18);
+        ERC20Detailed.initialize("Blend Token", "BLND", 18);
         Ownable.initialize(_msgSender());
         _mint(initialHolder, initialSupply);
         registry = Registry(registryAddress);

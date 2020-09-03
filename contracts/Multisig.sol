@@ -102,10 +102,13 @@ contract Multisig {
     }
 
     function updateOwners(address[] memory newOwners) private {
-        for (uint i = 0; i < owners.length; i++) {
+        uint ownersCount = owners.length;
+        for (uint i = 0; i < ownersCount; i++) {
             delete isOwner[owners[i]];
         }
-        for (uint i = 0; i < newOwners.length; i++) {
+
+        uint newOwnersCount = newOwners.length;
+        for (uint i = 0; i < newOwnersCount; i++) {
             isOwner[newOwners[i]] = true;
         }
         owners = newOwners;

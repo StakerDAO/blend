@@ -125,18 +125,31 @@ async function prepareTransaction(options: Partial<PrepareTransactionArguments>)
     ]) as { contractName: ContractName }
     const contract = env.getContract(contractName)
 
-    const { methodName } = await promptIfNeeded(options, [
+    const methodChoices = getManagementMethods(contractName).map(
+        (method: ContractMethodDecsription) => {
+            return { name: method.friendlyName, value: method.name }
+        }
+    )
+    let { methodName } = await promptIfNeeded(options, [
         {
             type: 'list',
             name: 'methodName',
             message: 'Choose a method to call',
-            choices: getManagementMethods(contractName).map(
-                (method: ContractMethodDecsription) => {
-                    return { name: method.friendlyName, value: method.name }
-                }
-            )
+            choices: [...methodChoices, { name: 'Other', value: 'other' }]
         }
     ]) as { methodName: string }
+
+    if (methodName == 'other') {
+        const answer = await promptIfNeeded(options, [
+            {
+                type: 'input',
+                name: 'methodName',
+                message: 'Choose a method to call',
+                validate: (v: string) => typeof getMethodInputs(contract, v) === 'object'
+            }
+        ]) as { methodName: string }
+        methodName = answer.methodName
+    }
 
     const inputs = getMethodInputs(contract, methodName)
     const callArgQuestions = inputs.map((field: Field) => {

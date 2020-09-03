@@ -30,13 +30,13 @@ async function makeTransaction(env: BlendEnvironment, tx: MultisigAction) {
         .map(addr => fixSignature(tx.signatures[addr]))
 
     try {
-        const gas = await msig.methods.execute(
+        const result = await msig.methods.execute(
             payload.targetAddress,
             payload.txValue,
             payload.txData,
             signatures
         ).send({ from: env.from })
-        console.log('Gas required: ', gas)
+        console.log(`Transaction submitted, txhash: ${result.transactionHash}`)
     } catch (err) {
         console.error(err)
     }

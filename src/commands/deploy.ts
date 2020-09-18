@@ -10,6 +10,7 @@ import { promptAndLoadEnv, promptIfNeeded } from '../prompt'
 import withErrors from '../utils/withErrors'
 import { Address, BN, NetworkName } from '../types'
 import { BlendEnvironment } from '../utils/environment'
+import { ensureAddress } from '../utils/validators'
 
 
 interface DeploymentArguments {
@@ -218,11 +219,6 @@ function makeQuestions(owners: Address[]) {
     ]
 }
 
-async function ensureAddress(address: Address) {
-    return Utils.isAddress(address) ||
-           `${address} is not a valid Ethereum address`
-}
-
 function register(program: any) {
     program
         .command('deploy <owner1> [owners...]')
@@ -243,4 +239,4 @@ function register(program: any) {
         .action(withErrors(deploy))
 }
 
-module.exports = { register }
+export { register }

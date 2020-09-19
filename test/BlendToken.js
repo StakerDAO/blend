@@ -14,8 +14,8 @@ describe('BlendToken', async function() {
         ctx.registry = await Registry.new({ from: owner })
         ctx.blend = await BlendToken.new({ from: owner })
 
-        const BLEND_INIT = 'initialize(address,uint256,address,address)'
-        const initializeBlend = ctx.blend.methods[BLEND_INIT]
+        const BLND_INIT = 'initialize(address,uint256,address,address)'
+        const initializeBlend = ctx.blend.methods[BLND_INIT]
 
         const REGISTRY_INIT = 'initialize(address,address)'
         const initializeRegistry = ctx.registry.methods[REGISTRY_INIT]

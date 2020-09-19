@@ -70,7 +70,7 @@ contract Orchestrator is Ownable {
         usdcPool = pool;
     }
 
-    /// @notice Sends all BLEND tokens associated with the Orchestrator
+    /// @notice Sends all BLND tokens associated with the Orchestrator
     ///         to the owner of the contract.
     function collectBlend() external onlyOwner {
         blend.transfer(owner(), blend.balanceOf(address(this)));
@@ -122,11 +122,11 @@ contract Orchestrator is Ownable {
         usdc.transferFrom(usdcPool, order.redeemerWallet, usdcAmount);
     }
 
-    /// @dev Given some fixed-point price, converts BLEND to USDC.
+    /// @dev Given some fixed-point price, converts BLND to USDC.
     ///      The integral result may be LESS than the actual fixed-point
     ///      value but never more, i.e. this function may UNDERESTIMATE
     ///      the required amount of USDC.
-    /// @param blendAmount BLEND amount
+    /// @param blendAmount BLND amount
     /// @param price Fixed-point price (actual price * PRICE_MULTIPLIER)
     /// @return USDC amount
     function _blendToUsdc(uint256 blendAmount, uint256 price)

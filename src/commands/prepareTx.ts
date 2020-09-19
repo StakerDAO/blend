@@ -31,7 +31,7 @@ function getManagementMethods(
             ...ownable,
             {
                 name: 'collectBlend',
-                friendlyName: 'Collect BLEND tokens (fee) from Orchestrator'
+                friendlyName: 'Collect BLND tokens (fee) from Orchestrator'
             },
             {
                 name: 'setDistributionBackend',

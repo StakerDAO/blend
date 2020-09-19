@@ -42,7 +42,7 @@ For various initial conditions ("internal balances" of addresses on a tender add
 We also check that the remaining "internal balances" do indeed match the expected values according to the specification.
 
 The second block of integrational tests cover different orderbook structures.
-We check that independently of the tender address, redeemer address, price, and amount, the resulting BLEND and USDC balances after execution match our expectations.
+We check that independently of the tender address, redeemer address, price, and amount, the resulting BLND and USDC balances after execution match our expectations.
 We use a separate `Scenario` class to take care of the boilerplate – doing proper initialization, checking balances of the addresses, etc.
 Currently, we use `Math.random` to generate randomness for our tests.
 In the future, we plan to move to a deterministic RNG or a QuickCheck-like library (e.g., `fast-check`) so that the errors of our randomized tests are reproducible.

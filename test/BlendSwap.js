@@ -38,8 +38,8 @@ describe('BlendToken', async function() {
         ctx.registry = await Registry.new({ from: owner })
         ctx.blend = await BlendToken.new({ from: owner })
 
-        const BLEND_INIT = 'initialize(address,uint256,address,address)'
-        const initializeBlend = ctx.blend.methods[BLEND_INIT]
+        const BLND_INIT = 'initialize(address,uint256,address,address)'
+        const initializeBlend = ctx.blend.methods[BLND_INIT]
 
         const REGISTRY_INIT = 'initialize(address,address)'
         const initializeRegistry = ctx.registry.methods[REGISTRY_INIT]
@@ -61,7 +61,7 @@ describe('BlendToken', async function() {
         ctx.swap = await BlendSwap.new(ctx.blend.address, { from: owner })
     }
 
-    it('initializes BLEND address correctly', async function() {
+    it('initializes BLND address correctly', async function() {
         await testDeploy(alice)
         expect(await ctx.swap.blend()).to.equal(ctx.blend.address)
     })

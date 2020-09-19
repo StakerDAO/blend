@@ -162,7 +162,7 @@ contract Registry is Initializable, Ownable {
                 _senders[tenderAddress].pop();
             } else {
                 // Deduce the remaining order amount but not liquidate sender
-                // since there are some BLEND tokens left
+                // since there are some BLND tokens left
                 _balances[tenderAddress][sender] = balance.sub(orderRemained);
                 orderRemained = 0;
                 break;
@@ -208,9 +208,9 @@ contract Registry is Initializable, Ownable {
         return _balances[tenderAddress][wallet];
     }
 
-    /// @notice Returns the number of addresses that have sent BLEND
+    /// @notice Returns the number of addresses that have sent BLND
     ///         to the specified tender address AND are still eligible
-    ///         to unlock some nonzero amount of BLEND tokens.
+    ///         to unlock some nonzero amount of BLND tokens.
     /// @param tenderAddress Tender address
     /// @return The number of senders
     function getSendersCount(address tenderAddress)

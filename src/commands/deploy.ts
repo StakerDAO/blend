@@ -133,7 +133,7 @@ async function initialize(
     const initializeRegistry =
         registry.methods['initialize(address,address)']
 
-    console.log('Initializing BLEND')
+    console.log('Initializing BLND')
 
     console.log(
         [
@@ -176,13 +176,13 @@ function makeQuestions(owners: Address[]) {
         {
             type: 'input',
             name: 'initialHolder',
-            message: 'Address of BLEND initial holder',
+            message: 'Address of BLND initial holder',
             validate: ensureAddress,
         },
         {
             type: 'input',
             name: 'supply',
-            message: 'Total supply (in BLEND tokens)',
+            message: 'Total supply (in BLND tokens)',
             validate: async (value: string) => {
                 try {
                     Utils.toWei(value)
@@ -230,8 +230,8 @@ function register(program: any) {
         )
         .option('-n, --network <network_name>', 'network to use')
         .option('--threshold <threshold>', 'signatures threshold')
-        .option('--initial-holder <address>', 'BLEND initial holder address')
-        .option('--supply <amount>', 'BLEND token supply')
+        .option('--initial-holder <address>', 'BLND initial holder address')
+        .option('--supply <amount>', 'BLND token supply')
         .option('--registry-backend <address>', 'Registry backend address')
         .option('--distribution-backend <address>', 'Distribution backend address')
         .option('--usdc-pool <address>', 'USDC pool address')

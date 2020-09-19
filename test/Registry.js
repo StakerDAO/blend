@@ -302,7 +302,7 @@ describe('Registry', async function() {
             await expectTenderBalances(after)
         }
 
-        it('Disallows someone except BLEND to dispatch burn', async function() {
+        it('Disallows someone except BLND to dispatch burn', async function() {
             await fund([$(alice, '10'), $(bob, '20'), $(carol, '30')])
             await expectRevert(
                 ctx.registry.dispatchBurn(tenderAddress, '10', {from: evil}),

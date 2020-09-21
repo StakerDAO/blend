@@ -262,7 +262,7 @@ describe('BlendToken', async function() {
         })
     })
 
-    describe('burn', async function() {
+    describe('burn from tender address', async function() {
         beforeEach(async function() {
             await ctx.blend.transfer.sendTransaction(
                 tenderAddress, toBN('100'), { from: alice }
@@ -297,13 +297,64 @@ describe('BlendToken', async function() {
             )
         })
 
-        it('cannot burn from a regurlar address', async function() {
+        it('cannot burn from a someone\'s regular address', async function() {
             await ctx.blend.startDistributionPhase({ from: orchestrator })
             await expectRevert(
                 ctx.blend.burn(
                     alice, toBN('100'), { from: orchestrator }
                 ),
                 'Burning from regular addresses is not allowed'
+            )
+        })
+    })
+
+    describe('burn from sender', async function() {
+        it('should burn my tokens', async function() {
+            const oldBalance = await ctx.blend.balanceOf(alice)
+            await ctx.blend.burn(toBN('22222'), { from: alice })
+            const newBalance = await ctx.blend.balanceOf(alice)
+            const balanceDelta = newBalance.sub(oldBalance)
+            expect(balanceDelta).to.be.bignumber.equal(toBN('-22222'))
+        })
+
+        it('should decrease total supply', async function() {
+            const oldSupply = await ctx.blend.totalSupply()
+            await ctx.blend.burn(alice, toBN('22222'), { from: owner })
+            const newSupply = await ctx.blend.totalSupply()
+            const supplyDelta = newSupply.sub(oldSupply)
+            expect(supplyDelta).to.be.bignumber.equal(toBN('-22222'))
+        })
+
+        it('should not burn more than available', async function() {
+            await ctx.blend.transfer(bob, toBN('22222'), { from: alice })
+            await expectRevert(
+                ctx.blend.burn(toBN('22223'), { from: bob }),
+                "Boom"
+            )
+        })
+    })
+
+    describe('mint', async function() {
+        it('should increase the balance of beneficiary', async function() {
+            await ctx.blend.transfer(bob, toBN('22222'), { from: alice })
+            await ctx.blend.mint(bob, toBN('22222'), { from: owner })
+            const newBalance = await ctx.blend.balanceOf(bob)
+            expect(newBalance).to.be.bignumber.equal(toBN('44444'))
+        })
+
+        it('should increase total supply', async function() {
+            const oldSupply = await ctx.blend.totalSupply()
+            await ctx.blend.mint(bob, toBN('22222'), { from: owner })
+            const newSupply = await ctx.blend.totalSupply()
+            const supplyDelta = newSupply.sub(oldSupply)
+            expect(supplyDelta).to.be.bignumber.equal(toBN('22222'))
+        })
+
+        it('should reject minting if called by a non-owner', async function() {
+            await
+            await expectRevert(
+                ctx.blend.mint(alice, toBN('22222'), { from: alice }),
+                "Boom"
             )
         })
     })

@@ -144,7 +144,7 @@ describe('Orchestrator', async function() {
             )
         })
 
-        it('fails on order bound by BLEND', async function() {
+        it('fails on order bound by BLND', async function() {
             const orders = [
                 {
                     redeemerTenderAddress: tenderAddress,

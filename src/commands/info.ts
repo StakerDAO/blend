@@ -22,7 +22,7 @@ async function getContractOrFail(env: BlendEnvironment, contractName: string) {
         return await env.getContract(contractName)
     } catch (err) {
         console.log(
-            'No deployed instance of BLEND found or a network error occurred'
+            'No deployed instance of BLND found or a network error occurred'
         )
         throw err
     }

@@ -2,7 +2,7 @@
 
 ## Multisig
 Our Registry and BlendToken contracts are upgradeable.
-Moreover, all three of our logic contracts – Registry, BlendToken, and Orchestrator – are _Ownable,_ i.e. they have an owner that can assign addresses of different entities such as distribution or registry backend, collect BLEND tokens from Orchestrator, etc.
+Moreover, all three of our logic contracts – Registry, BlendToken, and Orchestrator – are _Ownable,_ i.e. they have an owner that can assign addresses of different entities such as distribution or registry backend, collect BLND tokens from Orchestrator, etc.
 
 To govern the upgrades, and to manage the contracts, we use a special Multisig contract.
 We chose to implement the Multisig from scratch rather than use the existing alternatives because we needed an off-chain signing flow.
@@ -16,7 +16,7 @@ The first one executes some transaction (contract upgrade or changing the distri
 The second one changes the set of the Multisig owners and/or the required threshold.
 
 ## Token locks and unlocks
-Every holder of BLEND tokens can lock his funds to participate in a tender offer.
+Every holder of BLND tokens can lock his funds to participate in a tender offer.
 To lock the funds, the token holder must first register a new special **tender address** via the provided user interface.
 From the contracts' perspective, such tender address registration is implemented via a call to `registry.registerTenderAddress(tenderAddress)` from a pre-approved **registry backend**.
 
@@ -40,13 +40,13 @@ Token _burns_ are, in turn, allowed.
 
 At this stage, USDC pool owner `approve`s the desired amount of USDC to the Orchestrator.
 
-After the distribution is started, the backend submits the orders to the Orchestrator in batches using `orchestrator.executeOrders(...)` method. This method can be invoked several times with different set of orders, the only requirement is that the orders are sorted from the lowest price (USDC/BLEND) to the highest. The Orchestrator contract does not enforce the ordering between batches but it does enforce the ordering within a single batch.
+After the distribution is started, the backend submits the orders to the Orchestrator in batches using `orchestrator.executeOrders(...)` method. This method can be invoked several times with different set of orders, the only requirement is that the orders are sorted from the lowest price (USDC/BLND) to the highest. The Orchestrator contract does not enforce the ordering between batches but it does enforce the ordering within a single batch.
 
 For each order in a batch, the Orchestrator does the following:
-1. Burns `amount` of BLEND from the tender address.
+1. Burns `amount` of BLND from the tender address.
 2. Transfers `price * amount` of USDC to the redeemer wallet.
 
-If the USDC allowance is about to be exceeded at some point, the Orchestrator executes the order partially, i.e. it computes the amount of BLEND tokens it can buy with the current allowance, rounds the amount up and burns the corresponding amount of BLEND from the tender address.
+If the USDC allowance is about to be exceeded at some point, the Orchestrator executes the order partially, i.e. it computes the amount of BLND tokens it can buy with the current allowance, rounds the amount up and burns the corresponding amount of BLND from the tender address.
 
 For each burn operation, the dynamic fee is deduced.
 The fee is computed by the Registry contract and depends on the number of addresses that locked the funds on the particular tender address.
@@ -59,14 +59,14 @@ Registry contract tracks all the transactions to tender addresses.
 If a transaction is made from a new address, this address is added to the **senders list** of the tender address.
 For each sender, the **internal balance** is computed and updated.
 
-When someone makes a transaction to a tender address (i.e. locks BLEND tokens), the internal balance of `(tenderAddress, sender)` is updated.
+When someone makes a transaction to a tender address (i.e. locks BLND tokens), the internal balance of `(tenderAddress, sender)` is updated.
 If one unlocks the funds, this internal balance is reduced by the unlocked amount.
 
 During token burn, these internal balances are cleared up, starting from the most recent one.
 A fee is deduced for each sender in the tender address' senders list that gets eliminated.
 
 For example, if the internal balances of some tender address are `[(alice, 100), (bob, 9), (carol, 4)]`, the corresponding senders list (used for iteration) is `[alice, bob, carol]`, then, given `feePerAddress = 2` and `burnAmount = 10`, the process would go as follows:
-1. Carol has 4 tokens on the tender address, we deduce 2 BLND fee and burn another 2 BLND => Carol is no longer in the list, we have 8 more BLEND tokens to distribute.
+1. Carol has 4 tokens on the tender address, we deduce 2 BLND fee and burn another 2 BLND => Carol is no longer in the list, we have 8 more BLND tokens to distribute.
 2. Bob has 9 tokens, so we deduce 2 BLND fee and burn 7 BLND => Bob is no longer in the list, we have 1 BLND to distribute.
 3. Alice has 100 tokens, and it is more than the remaining burn amount => No fee for Alice is deduced, Alice remains in the list and has 99 tokens on her internal balance.
 
@@ -302,7 +302,7 @@ View methods:
    - **Access:** anyone
    - **Exceptions:** none
 3. `getSendersCount(address tenderAddress) -> uint`
-   - **Behavior:** Returns the number of addresses that have sent BLEND to the specified tender address AND are still eligible to unlock some nonzero amount of BLEND tokens (i.e. the length of `_senders[tenderAddress]` list).
+   - **Behavior:** Returns the number of addresses that have sent BLND to the specified tender address AND are still eligible to unlock some nonzero amount of BLND tokens (i.e. the length of `_senders[tenderAddress]` list).
    - **Access:** anyone
    - **Exceptions:** none
 4. `getSender(address tenderAddress, uint i) -> address`
@@ -388,7 +388,7 @@ State-modifying methods:
       - Not enough balance on tender address
       - Overflow
 6. `collectBlend()`
-   - **Behavior:** Sends all BLEND tokens associated with the Orchestrator to the owner of the contract.
+   - **Behavior:** Sends all BLND tokens associated with the Orchestrator to the owner of the contract.
    - **Access:** only **owner**
    - **Exceptions:**
       - Ownable: caller is not the owner

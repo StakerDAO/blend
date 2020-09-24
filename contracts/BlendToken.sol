@@ -153,7 +153,7 @@ contract BlendToken is Initializable, Ownable, ERC20, ERC20Detailed {
     /// @notice Burns sender's tokens.
     /// @param amount Amount to burn
     function burn(uint256 amount) public {
-        _burn(_msgSender, amount);
+        _burn(_msgSender(), amount);
     }
 
     /// @notice Mints tokens to the beneficiary.

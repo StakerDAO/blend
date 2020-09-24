@@ -271,7 +271,8 @@ describe('BlendToken', async function() {
 
         it('is enabled at distribution phase', async function() {
             await ctx.blend.startDistributionPhase({ from: orchestrator })
-            await ctx.blend.burn(
+            const burn = ctx.blend.methods['burn(address,uint256)']
+            await burn(
                 tenderAddress, toBN('50'), { from: orchestrator }
             )
             const remaining = await ctx.blend.balanceOf(tenderAddress)
@@ -279,8 +280,9 @@ describe('BlendToken', async function() {
         })
 
         it('is disabled at regurlar phase', async function() {
+            const burn = ctx.blend.methods['burn(address,uint256)']
             await expectRevert(
-                ctx.blend.burn(
+                burn(
                     tenderAddress, toBN('50'), { from: orchestrator }
                 ),
                 'Burn is allowed only at distribution phase'
@@ -289,18 +291,20 @@ describe('BlendToken', async function() {
 
         it('cannot burn more than the balance of tender address', async function() {
             await ctx.blend.startDistributionPhase({ from: orchestrator })
+            const burn = ctx.blend.methods['burn(address,uint256)']
             await expectRevert(
-                ctx.blend.burn(
+                burn(
                     tenderAddress, toBN('150'), { from: orchestrator }
                 ),
                 'Not enough balance on tender address'
             )
         })
 
-        it('cannot burn from a someone\'s regular address', async function() {
+        it('cannot burn from someone\'s regular address', async function() {
             await ctx.blend.startDistributionPhase({ from: orchestrator })
+            const burn = ctx.blend.methods['burn(address,uint256)']
             await expectRevert(
-                ctx.blend.burn(
+                burn(
                     alice, toBN('100'), { from: orchestrator }
                 ),
                 'Burning from regular addresses is not allowed'
@@ -311,7 +315,8 @@ describe('BlendToken', async function() {
     describe('burn from sender', async function() {
         it('should burn my tokens', async function() {
             const oldBalance = await ctx.blend.balanceOf(alice)
-            await ctx.blend.burn(toBN('22222'), { from: alice })
+            const burn = ctx.blend.methods['burn(uint256)']
+            await burn(toBN('22222'), { from: alice })
             const newBalance = await ctx.blend.balanceOf(alice)
             const balanceDelta = newBalance.sub(oldBalance)
             expect(balanceDelta).to.be.bignumber.equal(toBN('-22222'))
@@ -319,7 +324,8 @@ describe('BlendToken', async function() {
 
         it('should decrease total supply', async function() {
             const oldSupply = await ctx.blend.totalSupply()
-            await ctx.blend.burn(alice, toBN('22222'), { from: owner })
+            const burn = ctx.blend.methods['burn(uint256)']
+            await burn(toBN('22222'), { from: alice })
             const newSupply = await ctx.blend.totalSupply()
             const supplyDelta = newSupply.sub(oldSupply)
             expect(supplyDelta).to.be.bignumber.equal(toBN('-22222'))
@@ -327,9 +333,10 @@ describe('BlendToken', async function() {
 
         it('should not burn more than available', async function() {
             await ctx.blend.transfer(bob, toBN('22222'), { from: alice })
+            const burn = ctx.blend.methods['burn(uint256)']
             await expectRevert(
-                ctx.blend.burn(toBN('22223'), { from: bob }),
-                "Boom"
+                burn(toBN('22223'), { from: bob }),
+                "ERC20: burn amount exceeds balance"
             )
         })
     })
@@ -354,7 +361,7 @@ describe('BlendToken', async function() {
             await
             await expectRevert(
                 ctx.blend.mint(alice, toBN('22222'), { from: alice }),
-                "Boom"
+                "Ownable: caller is not the owner"
             )
         })
     })

@@ -1,5 +1,6 @@
 import { Contract } from '@openzeppelin/upgrades'
 import validFilename from 'valid-filename'
+import * as utils from 'web3-utils'
 import { promptAndLoadEnv, promptIfNeeded } from '../prompt'
 import { MultisigAction } from '../multisig'
 import withErrors from '../utils/withErrors'
@@ -58,16 +59,11 @@ function getManagementMethods(
             ...erc20,
             { name: 'setOrchestrator', friendlyName: 'Set Orchestrator address' },
             { name: 'setRegistry',     friendlyName: 'Set Registry address'     },
+            { name: 'mint',            friendlyName: 'Mint new tokens'          },
+            { name: 'burn(uint256)',   friendlyName: 'Burn tokens from sender'  },
         ],
     }
     return methods[c]
-}
-
-interface X {
-    contract: ContractName
-    address: Address
-    method: string
-    arguments: string[]
 }
 
 interface Field {
@@ -80,9 +76,19 @@ function getMethodInputs(c: Contract, methodName: string): Field[] {
     if (!isKnownContract(contractName)) {
         throw Error(`${contractName} is not a known contract`)
     }
-    const methods = c.schema.abi.filter(v => v.name == methodName)
+    const expectedSig = utils.sha3(methodName).slice(0, 10)
+    let methods = c.schema.abi.filter(v => v.signature == expectedSig)
+    if (methods.length === 1) {
+        return methods[0].inputs
+    }
+    if (methods.length !== 0) {
+        throw Error(
+            `Method with signature ${expectedSig} is not unique. Check your contracts!`
+	)
+    }
+    methods = c.schema.abi.filter(v => v.name == methodName)
     if (methods.length !== 1) {
-        throw Error(`${methodName} method is not unique`)
+        throw Error(`${methodName} method is not unique, use method signature`)
     }
     return methods[0].inputs
 }

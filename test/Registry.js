@@ -30,6 +30,54 @@ describe('Registry', async function() {
         })
     })
 
+    describe('Batch tender address registration', async function() {
+        it('Registers the addresses if called by a registry backend', async function() {
+            await ctx.registry.registerTenderAddressBatch.sendTransaction(
+                [alice, bob, carol], {from: registryBackend}
+            )
+            expect(
+                await Promise.all([
+                    ctx.registry.isTenderAddress.call(alice),
+                    ctx.registry.isTenderAddress.call(bob),
+                    ctx.registry.isTenderAddress.call(carol)
+                ])
+            ).to.deep.equal(
+                [true, true, true],
+                'Tender address was not registered'
+            )
+        })
+
+        it('Fails if called from arbitrary address', async function() {
+            await expectRevert(
+                ctx.registry.registerTenderAddressBatch.sendTransaction(
+                    [alice, bob, carol], { from: evil }
+                ),
+                'Unauthorized: sender is not a registry backend'
+            )
+        })
+
+        it('Fails if called by owner', async function() {
+            await expectRevert(
+                ctx.registry.registerTenderAddressBatch
+                            .sendTransaction([alice, bob, carol], { from: owner }),
+                'Unauthorized: sender is not a registry backend'
+            )
+        })
+
+        it('Fails if called twice', async function() {
+            await ctx.registry.registerTenderAddressBatch.sendTransaction(
+                [alice, bob, carol], { from: registryBackend }
+            )
+            await expectRevert(
+                ctx.registry.registerTenderAddressBatch.sendTransaction(
+                    [bob], { from: registryBackend }
+                ),
+                'Tender address already registered'
+            )
+        })
+    })
+
+
     describe('Tender address registration', async function() {
         it('Registers an address if called by a registry backend', async function() {
             await ctx.registry.registerTenderAddress.sendTransaction(

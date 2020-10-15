@@ -6,6 +6,8 @@ import * as sign from './commands/sign'
 import * as submit from './commands/submit'
 import * as upgrade from './commands/upgrade'
 
+import * as tenderBatch from './commands/tenderBatch'
+
 import * as deploySwap from './commands/swap/deploySwap'
 import * as swapLock from './commands/swap/lock'
 import * as swapGenerate from './commands/swap/generate'
@@ -16,5 +18,5 @@ import * as swapClaimRefund from './commands/swap/claimRefund'
 export {
     deploy, info, merge, prepareTx, sign, submit, upgrade,
     deploySwap, swapGenerate, swapLock, swapSwapConfirm,
-    swapRedeem, swapClaimRefund
+    swapRedeem, swapClaimRefund, tenderBatch
 }

@@ -12,7 +12,6 @@ import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/IERC20.so
 contract BlendSwap {
 
     mapping (bytes32 => Swap) public swaps;
-    mapping (bytes32 => bytes32) public hashlocks;
     mapping (bytes32 => bytes32) public secrets;
     mapping (bytes32 => Status) public status;
 
@@ -23,12 +22,13 @@ contract BlendSwap {
         address to;
         uint amount;
         uint releaseTime;
+        bytes32 secretHash;
     }
 
     enum Status {
         NOT_INITIALIZED,
         INITIALIZED,
-        HASH_REVEALED,
+        CONFIRMED,
         SECRET_REVEALED,
         REFUNDED
     }
@@ -41,7 +41,8 @@ contract BlendSwap {
         address to,
         uint256 amount,
         uint releaseTime,
-        bytes32 secretHash
+        bytes32 secretHash,
+        bool confirmed
     )
         public
     {
@@ -54,40 +55,40 @@ contract BlendSwap {
             from: msg.sender,
             to: to,
             amount: amount,
-            releaseTime: releaseTime
+            releaseTime: releaseTime,
+            secretHash: secretHash
         });
 
-        if (secretHash == 0x00) {
+        if (confirmed) {
             status[secretHash] = Status.INITIALIZED;
         } else {
-            status[secretHash] = Status.HASH_REVEALED;
-            hashlocks[secretHash] = secretHash;
+            status[secretHash] = Status.CONFIRMED;
         }
 
         blend.transferFrom(msg.sender, address(this), amount);
     }
 
-    function revealSecretHash(bytes32 secretHash) public {
+    function confirmSwap(bytes32 secretHash) public {
         require(
             status[secretHash] == Status.INITIALIZED,
             "Wrong status"
         );
+
         require(
             msg.sender == swaps[secretHash].from,
             "Sender is not the initiator"
         );
 
-        status[secretHash] = Status.HASH_REVEALED;
-        hashlocks[secretHash] = secretHash;
+        status[secretHash] = Status.CONFIRMED;
     }
 
     function redeem(bytes32 secretHash, bytes32 secret) public {
         require(
-            status[secretHash] == Status.HASH_REVEALED,
+            status[secretHash] == Status.CONFIRMED,
             "Wrong status"
         );
         require(
-            sha256(abi.encode(secret)) == hashlocks[secretHash],
+            sha256(abi.encode(secret)) == swaps[secretHash].secretHash,
             "Wrong secret"
         );
 
@@ -104,7 +105,7 @@ contract BlendSwap {
         );
         Status st = status[secretHash];
         require(
-            st == Status.INITIALIZED || st == Status.HASH_REVEALED,
+            st == Status.INITIALIZED || st == Status.CONFIRMED,
             "Wrong status"
         );
 

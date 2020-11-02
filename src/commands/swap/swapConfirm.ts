@@ -7,15 +7,15 @@ import { ensureAddress } from '../../utils/validators'
 import { NetworkName, Address } from '../../types'
 
 
-interface RevealHashArguments {
+interface SwapConfirmArguments {
     network: NetworkName
     from: Address
     secretHash: string
 }
 
-type CmdlineOptions = Partial<RevealHashArguments>
+type CmdlineOptions = Partial<SwapConfirmArguments>
 
-async function revealHash(options: CmdlineOptions) {
+async function swapConfirm(options: CmdlineOptions) {
     const env = await promptAndLoadEnv({networkInOpts: options.network})
 
     const swapContract = await env.getContract('BlendSwap')
@@ -24,7 +24,7 @@ async function revealHash(options: CmdlineOptions) {
     const questions = await makeQuestions(env)
     const args = await promptIfNeeded(options, questions)
 
-    await swapContract.methods.revealSecretHash(
+    await swapContract.methods.confirmSwap(
         args.secretHash
     ).send({from: args.from})
 }
@@ -35,7 +35,7 @@ async function makeQuestions(env: BlendEnvironment) {
         {
             type: 'list',
             name: 'from',
-            message: 'Address to reveal the hash from',
+            message: 'Address to confirm the swap from',
             choices: existingAccounts,
             validate:
                 async (address: Address) => existingAccounts.includes(address),
@@ -50,15 +50,15 @@ async function makeQuestions(env: BlendEnvironment) {
 
 function register(program: any) {
     program
-        .command('swap-reveal-hash')
-        .usage('swap-reveal-hash')
+        .command('swap-confirm')
+        .usage('swap-confirm')
         .description(
-            'Reveal secret hash'
+            'Confirm swap'
         )
         .option('-n, --network <network_name>', 'network to use')
-        .option('--from <address>', 'address to reveal the hash from')
+        .option('--from <address>', 'address to confirm the swap from')
         .option('--secret-hash', 'secret hash')
-        .action(withErrors(revealHash))
+        .action(withErrors(swapConfirm))
 }
 
 export { register }

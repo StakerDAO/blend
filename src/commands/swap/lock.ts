@@ -13,6 +13,7 @@ interface LockArguments {
     to: Address
     amount: string
     secretHash: string
+    confirmed: boolean
 }
 
 type CmdlineOptions = Partial<LockArguments>
@@ -37,7 +38,7 @@ async function lock(options: CmdlineOptions) {
     ).send({from: args.from})
 
     await swapContract.methods.lock(
-        args.to, amount, releaseTime, args.secretHash
+        args.to, amount, releaseTime, args.secretHash, args.confirmed
     ).send({from: args.from})
 }
 
@@ -74,7 +75,12 @@ async function makeQuestions(env: BlendEnvironment) {
         {
             type: 'input',
             name: 'secretHash',
-            message: 'Secret hash (set to 0x00 if not revealing)',
+            message: 'Secret hash',
+        },
+        {
+            type: 'input',
+            name: 'confirmed',
+            message: 'Set true if you are not the initiator',
         },
     ]
 }
@@ -91,6 +97,7 @@ function register(program: any) {
         .option('--to <address>', 'address to send tokens to')
         .option('--amount <amount>', 'the amount of tokens to send (e.g., 12.9876)')
         .option('--secret-hash', 'secret hash')
+        .option('--confirmed', 'confirmed or not')
         .action(withErrors(lock))
 }
 

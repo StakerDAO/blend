@@ -53,7 +53,7 @@ function register(program: any) {
         .command('swap-claim-refund')
         .usage('swap-claim-refund')
         .description(
-            'Reveal secret hash'
+            'Claim refund'
         )
         .option('-n, --network <network_name>', 'network to use')
         .option('--from <address>', 'address to claim refund to')

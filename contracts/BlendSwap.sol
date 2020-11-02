@@ -82,13 +82,16 @@ contract BlendSwap {
         status[secretHash] = Status.CONFIRMED;
     }
 
-    function redeem(bytes32 secretHash, bytes32 secret) public {
+    function redeem(bytes32 secret) public {
+        bytes32 secretHash = sha256(abi.encode(secret));
+
         require(
             status[secretHash] == Status.CONFIRMED,
             "Wrong status"
         );
+
         require(
-            sha256(abi.encode(secret)) == swaps[secretHash].secretHash,
+            secretHash == swaps[secretHash].secretHash,
             "Wrong secret"
         );
 

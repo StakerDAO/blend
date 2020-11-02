@@ -14,6 +14,7 @@ interface LockArguments {
     amount: string
     secretHash: string
     confirmed: boolean
+    fee: string
 }
 
 type CmdlineOptions = Partial<LockArguments>
@@ -32,13 +33,14 @@ async function lock(options: CmdlineOptions) {
     const releaseTime = Math.floor(Date.now() / 1000) + timeout
 
     const amount = Utils.toWei(args.amount)
+    const fee = Utils.toWei(args.fee)
 
     await blend.methods.approve(
-        swapContract.address, amount
+        swapContract.address, amount.add(fee)
     ).send({from: args.from})
 
     await swapContract.methods.lock(
-        args.to, amount, releaseTime, args.secretHash, args.confirmed
+        args.to, amount, releaseTime, args.secretHash, args.confirmed, fee
     ).send({from: args.from})
 }
 
@@ -82,6 +84,19 @@ async function makeQuestions(env: BlendEnvironment) {
             name: 'confirmed',
             message: 'Set true if you are not the initiator',
         },
+        {
+            type: 'input',
+            name: 'fee',
+            message: 'The fee of the swap',
+            validate: async (value: string) => {
+                try {
+                    Utils.toWei(value)
+                    return true
+                } catch (err) {
+                    return `${value} is not a valid fee`
+                }
+            },
+        },
     ]
 }
 
@@ -98,6 +113,7 @@ function register(program: any) {
         .option('--amount <amount>', 'the amount of tokens to send (e.g., 12.9876)')
         .option('--secret-hash', 'secret hash')
         .option('--confirmed', 'confirmed or not')
+        .option('--fee <fee>', 'the fee of the swap (e.g., 12.9876)')
         .action(withErrors(lock))
 }
 

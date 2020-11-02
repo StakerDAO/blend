@@ -23,6 +23,7 @@ contract BlendSwap {
         uint amount;
         uint releaseTime;
         bytes32 secretHash;
+        uint256 fee;
     }
 
     enum Status {
@@ -42,7 +43,8 @@ contract BlendSwap {
         uint256 amount,
         uint releaseTime,
         bytes32 secretHash,
-        bool confirmed
+        bool confirmed,
+        uint256 fee
     )
         public
     {
@@ -56,7 +58,8 @@ contract BlendSwap {
             to: to,
             amount: amount,
             releaseTime: releaseTime,
-            secretHash: secretHash
+            secretHash: secretHash,
+            fee: fee
         });
 
         if (confirmed) {
@@ -65,7 +68,7 @@ contract BlendSwap {
             status[secretHash] = Status.CONFIRMED;
         }
 
-        blend.transferFrom(msg.sender, address(this), amount);
+        blend.transferFrom(msg.sender, address(this), amount + fee);
     }
 
     function confirmSwap(bytes32 secretHash) public {
@@ -98,7 +101,7 @@ contract BlendSwap {
         status[secretHash] = Status.SECRET_REVEALED;
         secrets[secretHash] = secret;
 
-        blend.transfer(swaps[secretHash].to, swaps[secretHash].amount);
+        blend.transfer(swaps[secretHash].to, swaps[secretHash].amount + swaps[secretHash].fee);
     }
 
     function claimRefund(bytes32 secretHash) public {
@@ -114,6 +117,7 @@ contract BlendSwap {
 
         status[secretHash] = Status.REFUNDED;
 
+        blend.transfer(swaps[secretHash].to, swaps[secretHash].fee);
         blend.transfer(swaps[secretHash].from, swaps[secretHash].amount);
     }
 }

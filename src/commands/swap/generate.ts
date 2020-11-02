@@ -12,10 +12,9 @@ function sha256(payload: string) {
 function generate() {
     const secret = '0x' + randomBytes(32).toString('hex')
     const secretHash = sha256(secret)
-    const lockId = '0x' + randomBytes(32).toString('hex')
 
     console.log({
-        secret, secretHash, lockId
+        secret, secretHash
     })
 }
 
@@ -24,7 +23,7 @@ function register(program: any) {
         .command('swap-generate')
         .usage('swap-generate')
         .description(
-            'Generate a secret and a lock id'
+            'Generate a secret and secret hash'
         )
         .action(withErrors(generate))
 }

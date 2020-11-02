@@ -10,7 +10,7 @@ import { NetworkName, Address } from '../../types'
 interface RedeemArguments {
     network: NetworkName
     from: Address
-    lockId: string
+    secretHash: string
     secret: string
 }
 
@@ -26,7 +26,7 @@ async function redeem(options: CmdlineOptions) {
     const args = await promptIfNeeded(options, questions)
 
     await swapContract.methods.redeem(
-        args.lockId, args.secret
+        args.secretHash, args.secret
     ).send({from: args.from})
 }
 
@@ -43,8 +43,8 @@ async function makeQuestions(env: BlendEnvironment) {
         },
         {
             type: 'input',
-            name: 'lockId',
-            message: 'Lock id',
+            name: 'secretHash',
+            message: 'Secret hash',
         },
         {
             type: 'input',
@@ -63,7 +63,7 @@ function register(program: any) {
         )
         .option('-n, --network <network_name>', 'network to use')
         .option('--from <address>', 'address to redeem tokens to')
-        .option('--lock-id', 'lock id')
+        .option('--secret-hash', 'secret hash')
         .option('--secret', 'secret')
         .action(withErrors(redeem))
 }

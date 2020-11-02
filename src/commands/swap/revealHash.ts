@@ -10,7 +10,6 @@ import { NetworkName, Address } from '../../types'
 interface RevealHashArguments {
     network: NetworkName
     from: Address
-    lockId: string
     secretHash: string
 }
 
@@ -26,7 +25,7 @@ async function revealHash(options: CmdlineOptions) {
     const args = await promptIfNeeded(options, questions)
 
     await swapContract.methods.revealSecretHash(
-        args.lockId, args.secretHash
+        args.secretHash
     ).send({from: args.from})
 }
 
@@ -40,11 +39,6 @@ async function makeQuestions(env: BlendEnvironment) {
             choices: existingAccounts,
             validate:
                 async (address: Address) => existingAccounts.includes(address),
-        },
-        {
-            type: 'input',
-            name: 'lockId',
-            message: 'Lock id',
         },
         {
             type: 'input',
@@ -63,7 +57,6 @@ function register(program: any) {
         )
         .option('-n, --network <network_name>', 'network to use')
         .option('--from <address>', 'address to reveal the hash from')
-        .option('--lock-id', 'lock id')
         .option('--secret-hash', 'secret hash')
         .action(withErrors(revealHash))
 }

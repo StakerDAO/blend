@@ -12,7 +12,6 @@ interface LockArguments {
     from: Address
     to: Address
     amount: string
-    lockId: string
     secretHash: string
 }
 
@@ -38,7 +37,7 @@ async function lock(options: CmdlineOptions) {
     ).send({from: args.from})
 
     await swapContract.methods.lock(
-        args.lockId, args.to, amount, releaseTime, args.secretHash
+        args.to, amount, releaseTime, args.secretHash
     ).send({from: args.from})
 }
 
@@ -74,11 +73,6 @@ async function makeQuestions(env: BlendEnvironment) {
         },
         {
             type: 'input',
-            name: 'lockId',
-            message: 'Lock id',
-        },
-        {
-            type: 'input',
             name: 'secretHash',
             message: 'Secret hash (set to 0x00 if not revealing)',
         },
@@ -96,7 +90,6 @@ function register(program: any) {
         .option('--from <address>', 'address to lock tokens from')
         .option('--to <address>', 'address to send tokens to')
         .option('--amount <amount>', 'the amount of tokens to send (e.g., 12.9876)')
-        .option('--lock-id', 'lock id')
         .option('--secret-hash', 'secret hash')
         .action(withErrors(lock))
 }

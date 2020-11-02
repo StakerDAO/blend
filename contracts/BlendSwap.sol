@@ -38,7 +38,6 @@ contract BlendSwap {
     }
 
     function lock(
-        bytes32 lockId,
         address to,
         uint256 amount,
         uint releaseTime,
@@ -47,71 +46,70 @@ contract BlendSwap {
         public
     {
         require(
-            status[lockId] == Status.NOT_INITIALIZED,
-            "Lock with this id already exists"
+            status[secretHash] == Status.NOT_INITIALIZED,
+            "Lock with this secretHash already exists"
         );
 
-        swaps[lockId] = Swap({
+        swaps[secretHash] = Swap({
             from: msg.sender,
             to: to,
             amount: amount,
             releaseTime: releaseTime
         });
 
-
         if (secretHash == 0x00) {
-            status[lockId] = Status.INITIALIZED;
+            status[secretHash] = Status.INITIALIZED;
         } else {
-            status[lockId] = Status.HASH_REVEALED;
-            hashlocks[lockId] = secretHash;
+            status[secretHash] = Status.HASH_REVEALED;
+            hashlocks[secretHash] = secretHash;
         }
 
         blend.transferFrom(msg.sender, address(this), amount);
     }
 
-    function revealSecretHash(bytes32 lockId, bytes32 secretHash) public {
+    function revealSecretHash(bytes32 secretHash) public {
         require(
-            status[lockId] == Status.INITIALIZED,
+            status[secretHash] == Status.INITIALIZED,
             "Wrong status"
         );
         require(
-            msg.sender == swaps[lockId].from,
+            msg.sender == swaps[secretHash].from,
             "Sender is not the initiator"
         );
 
-        status[lockId] = Status.HASH_REVEALED;
-        hashlocks[lockId] = secretHash;
+        status[secretHash] = Status.HASH_REVEALED;
+        hashlocks[secretHash] = secretHash;
     }
 
-    function redeem(bytes32 lockId, bytes32 secret) public {
+    function redeem(bytes32 secretHash, bytes32 secret) public {
         require(
-            status[lockId] == Status.HASH_REVEALED,
+            status[secretHash] == Status.HASH_REVEALED,
             "Wrong status"
         );
         require(
-            sha256(abi.encode(secret)) == hashlocks[lockId],
+            sha256(abi.encode(secret)) == hashlocks[secretHash],
             "Wrong secret"
         );
 
-        status[lockId] = Status.SECRET_REVEALED;
-        secrets[lockId] = secret;
+        status[secretHash] = Status.SECRET_REVEALED;
+        secrets[secretHash] = secret;
 
-        blend.transfer(swaps[lockId].to, swaps[lockId].amount);
+        blend.transfer(swaps[secretHash].to, swaps[secretHash].amount);
     }
 
-    function claimRefund(bytes32 lockId) public {
+    function claimRefund(bytes32 secretHash) public {
         require(
-            block.timestamp >= swaps[lockId].releaseTime,
+            block.timestamp >= swaps[secretHash].releaseTime,
             "Funds still locked"
         );
-        Status st = status[lockId];
+        Status st = status[secretHash];
         require(
             st == Status.INITIALIZED || st == Status.HASH_REVEALED,
             "Wrong status"
         );
 
-        status[lockId] = Status.REFUNDED;
+        status[secretHash] = Status.REFUNDED;
 
-        blend.transfer(swaps[lockId].from, swaps[lockId].amount);
+        blend.transfer(swaps[secretHash].from, swaps[secretHash].amount);
     }
 }

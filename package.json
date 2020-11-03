@@ -10,7 +10,8 @@
   "private": true,
   "scripts": {
     "test": "npx mocha --exit --recursive --timeout 30000",
-    "build": "tsc"
+    "build": "tsc",
+    "contractsCompile": "npx oz compile"
   },
   "author": "",
   "license": "ISC",

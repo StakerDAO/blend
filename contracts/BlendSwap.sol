@@ -63,9 +63,9 @@ contract BlendSwap {
         });
 
         if (confirmed) {
-            status[secretHash] = Status.INITIALIZED;
-        } else {
             status[secretHash] = Status.CONFIRMED;
+        } else {
+            status[secretHash] = Status.INITIALIZED;
         }
 
         blend.transferFrom(msg.sender, address(this), amount + fee);
@@ -109,10 +109,16 @@ contract BlendSwap {
             block.timestamp >= swaps[secretHash].releaseTime,
             "Funds still locked"
         );
+
         Status st = status[secretHash];
         require(
             st == Status.INITIALIZED || st == Status.CONFIRMED,
             "Wrong status"
+        );
+
+        require(
+            msg.sender == swaps[secretHash].from,
+            "Sender is not the initiator"
         );
 
         status[secretHash] = Status.REFUNDED;

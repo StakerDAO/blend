@@ -35,7 +35,7 @@ async function makeQuestions(env: BlendEnvironment) {
         {
             type: 'list',
             name: 'from',
-            message: 'Address to confirm the swap from',
+            message: 'Address to confirm swap from',
             choices: existingAccounts,
             validate:
                 async (address: Address) => existingAccounts.includes(address),
@@ -56,7 +56,7 @@ function register(program: any) {
             'Confirm swap'
         )
         .option('-n, --network <network_name>', 'network to use')
-        .option('--from <address>', 'address to confirm the swap from')
+        .option('--from <address>', 'address to confirm swap from')
         .option('--secret-hash', 'secret hash')
         .action(withErrors(swapConfirm))
 }

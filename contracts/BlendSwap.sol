@@ -38,6 +38,19 @@ contract BlendSwap {
         blend = IERC20(blend_);
     }
 
+    event LockEvent(
+        address from,
+        address to,
+        uint256 amount,
+        uint releaseTime,
+        bytes32 secretHash,
+        bool confirmed,
+        uint256 fee
+    );
+    event ConfirmEvent(bytes32 secretHash);
+    event RedeemEvent(bytes32 secret);
+    event RefundEvent(bytes32 secretHash);
+
     function lock(
         address to,
         uint256 amount,
@@ -69,6 +82,7 @@ contract BlendSwap {
         }
 
         blend.transferFrom(msg.sender, address(this), amount + fee);
+        emit LockEvent(msg.sender, to, amount, releaseTime, secretHash, confirmed, fee);
     }
 
     function confirmSwap(bytes32 secretHash) public {
@@ -83,6 +97,7 @@ contract BlendSwap {
         );
 
         status[secretHash] = Status.CONFIRMED;
+        emit ConfirmEvent(secretHash);
     }
 
     function redeem(bytes32 secret) public {
@@ -102,6 +117,7 @@ contract BlendSwap {
         secrets[secretHash] = secret;
 
         blend.transfer(swaps[secretHash].to, swaps[secretHash].amount + swaps[secretHash].fee);
+        emit RedeemEvent(secret);
     }
 
     function claimRefund(bytes32 secretHash) public {
@@ -125,5 +141,6 @@ contract BlendSwap {
 
         blend.transfer(swaps[secretHash].to, swaps[secretHash].fee);
         blend.transfer(swaps[secretHash].from, swaps[secretHash].amount);
+        emit RefundEvent(secretHash);
     }
 }

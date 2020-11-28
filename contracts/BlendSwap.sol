@@ -48,7 +48,7 @@ contract BlendSwap {
         uint256 fee
     );
     event ConfirmEvent(bytes32 secretHash);
-    event RedeemEvent(bytes32 secret);
+    event RedeemEvent(bytes32 secretHash, bytes32 secret);
     event RefundEvent(bytes32 secretHash);
 
     function lock(
@@ -117,7 +117,7 @@ contract BlendSwap {
         secrets[secretHash] = secret;
 
         blend.transfer(swaps[secretHash].to, swaps[secretHash].amount + swaps[secretHash].fee);
-        emit RedeemEvent(secret);
+        emit RedeemEvent(secretHash, secret);
     }
 
     function claimRefund(bytes32 secretHash) public {

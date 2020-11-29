@@ -39,17 +39,17 @@ contract BlendSwap {
     }
 
     event LockEvent(
+        bytes32 indexed secretHash,
         address from,
         address to,
         uint256 amount,
         uint releaseTime,
-        bytes32 secretHash,
         bool confirmed,
         uint256 fee
     );
-    event ConfirmEvent(bytes32 secretHash);
-    event RedeemEvent(bytes32 secretHash, bytes32 secret);
-    event RefundEvent(bytes32 secretHash);
+    event ConfirmEvent(bytes32 indexed secretHash);
+    event RedeemEvent(bytes32 indexed secretHash, bytes32 secret);
+    event RefundEvent(bytes32 indexed secretHash);
 
     function lock(
         address to,
@@ -82,7 +82,7 @@ contract BlendSwap {
         }
 
         blend.transferFrom(msg.sender, address(this), amount + fee);
-        emit LockEvent(msg.sender, to, amount, releaseTime, secretHash, confirmed, fee);
+        emit LockEvent(secretHash, msg.sender, to, amount, releaseTime, confirmed, fee);
     }
 
     function confirmSwap(bytes32 secretHash) public {

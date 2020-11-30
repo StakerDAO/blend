@@ -21,7 +21,7 @@ contract Orchestrator is Ownable {
     address public distributionBackend;
     address public usdcPool;
 
-    uint256 public constant PRICE_MULTIPLIER = 10_000;
+    uint256 public constant PRICE_MULTIPLIER = 10_000_000_000_000_000;
 
     using SafeMath for uint256;
 

@@ -38,6 +38,10 @@ contract BlendSwap {
         blend = IERC20(blend_);
     }
 
+    function getSwap(bytes32 secretHash) public view returns (Swap memory) {
+        return swaps[secretHash];
+    }
+
     event LockEvent(
         bytes32 indexed secretHash,
         address from,

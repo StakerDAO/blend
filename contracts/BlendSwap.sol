@@ -12,8 +12,6 @@ import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/IERC20.so
 contract BlendSwap {
 
     mapping (bytes32 => Swap) public swaps;
-    mapping (bytes32 => bytes32) public secrets;
-    mapping (bytes32 => Status) public status;
 
     IERC20 public blend;
 
@@ -22,16 +20,8 @@ contract BlendSwap {
         address to;
         uint amount;
         uint releaseTime;
-        bytes32 secretHash;
+        bool confirmed;
         uint256 fee;
-    }
-
-    enum Status {
-        NOT_INITIALIZED,
-        INITIALIZED,
-        CONFIRMED,
-        SECRET_REVEALED,
-        REFUNDED
     }
 
     constructor(address blend_) public {
@@ -62,7 +52,7 @@ contract BlendSwap {
         public
     {
         require(
-            status[secretHash] == Status.NOT_INITIALIZED,
+            swaps[secretHash].from == address(0),
             "Lock with this secretHash already exists"
         );
 
@@ -71,15 +61,9 @@ contract BlendSwap {
             to: to,
             amount: amount,
             releaseTime: releaseTime,
-            secretHash: secretHash,
+            confirmed: confirmed,
             fee: fee
         });
-
-        if (confirmed) {
-            status[secretHash] = Status.CONFIRMED;
-        } else {
-            status[secretHash] = Status.INITIALIZED;
-        }
 
         blend.transferFrom(msg.sender, address(this), amount + fee);
         emit LockEvent(secretHash, msg.sender, to, amount, releaseTime, confirmed, fee);
@@ -87,8 +71,13 @@ contract BlendSwap {
 
     function confirmSwap(bytes32 secretHash) public {
         require(
-            status[secretHash] == Status.INITIALIZED,
-            "Wrong status"
+            swaps[secretHash].from != address(0),
+            "Lock does not exists"
+        );
+
+        require(
+            swaps[secretHash].confirmed == false,
+            "Lock already confirmed"
         );
 
         require(
@@ -96,7 +85,7 @@ contract BlendSwap {
             "Sender is not the initiator"
         );
 
-        status[secretHash] = Status.CONFIRMED;
+        swaps[secretHash].confirmed = true;
         emit ConfirmEvent(secretHash);
     }
 
@@ -104,19 +93,17 @@ contract BlendSwap {
         bytes32 secretHash = sha256(abi.encode(secret));
 
         require(
-            status[secretHash] == Status.CONFIRMED,
-            "Wrong status"
+            swaps[secretHash].from != address(0),
+            "Lock does not exists"
         );
 
         require(
-            secretHash == swaps[secretHash].secretHash,
-            "Wrong secret"
+            swaps[secretHash].confirmed == true,
+            "Lock doesn't confirm"
         );
 
-        status[secretHash] = Status.SECRET_REVEALED;
-        secrets[secretHash] = secret;
-
         blend.transfer(swaps[secretHash].to, swaps[secretHash].amount + swaps[secretHash].fee);
+        delete swaps[secretHash];
         emit RedeemEvent(secretHash, secret);
     }
 
@@ -126,10 +113,9 @@ contract BlendSwap {
             "Funds still locked"
         );
 
-        Status st = status[secretHash];
         require(
-            st == Status.INITIALIZED || st == Status.CONFIRMED,
-            "Wrong status"
+            swaps[secretHash].from != address(0),
+            "Lock does not exists"
         );
 
         require(
@@ -137,10 +123,9 @@ contract BlendSwap {
             "Sender is not the initiator"
         );
 
-        status[secretHash] = Status.REFUNDED;
-
         blend.transfer(swaps[secretHash].to, swaps[secretHash].fee);
         blend.transfer(swaps[secretHash].from, swaps[secretHash].amount);
+        delete swaps[secretHash];
         emit RefundEvent(secretHash);
     }
 }

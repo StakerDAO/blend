@@ -8,15 +8,6 @@ const Registry = contract.fromArtifact('Registry')
 const BlendToken = contract.fromArtifact('BlendToken')
 const BlendSwap = contract.fromArtifact('BlendSwap')
 
-
-const Status = {
-    NOT_INITIALIZED: 0,
-    INITIALIZED: 1,
-    CONFIRMED: 2,
-    SECRET_REVEALED: 3,
-    REFUNDED: 4
-}
-
 function hash(payload) {
     const data = Buffer.from(hexToBytes(payload))
     const hash = crypto.createHash('sha256')
@@ -61,7 +52,6 @@ describe('BlendSwap', async function() {
         expect(await ctx.swap.blend()).to.equal(ctx.blend.address)
     })
 
-    const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000'
     const dummySecret = '0x1234567812345678123456781234567812345678123456781234567812345678'
     const dummySecretHash = hash(dummySecret)
 
@@ -93,16 +83,7 @@ describe('BlendSwap', async function() {
             expect(result.amount).to.be.bignumber.equal(amount)
             expect(result.releaseTime).to.be.bignumber.equal(releaseTime)
             expect(result.fee).to.be.bignumber.equal(fee)
-            expect(result.secretHash).to.equal(dummySecretHash)
-        })
-
-        it('should have CONFIRMED status', async function() {
-            const status = (await ctx.swap.status(dummySecretHash)).toNumber()
-            expect(status).to.equal(Status.CONFIRMED)
-        })
-
-        it('should not hold secret', async function() {
-            expect(await ctx.swap.secrets(dummySecretHash)).to.equal(ZERO_BYTES32)
+            expect(result.confirmed).to.equal(true)
         })
 
         it('should decrease Bob\'s token balance', async function() {
@@ -139,16 +120,7 @@ describe('BlendSwap', async function() {
             expect(result.amount).to.be.bignumber.equal(amount)
             expect(result.releaseTime).to.be.bignumber.equal(releaseTime)
             expect(result.fee).to.be.bignumber.equal(fee)
-            expect(result.secretHash).to.equal(dummySecretHash)
-        })
-
-        it('should have CONFIRMED status', async function() {
-            const status = (await ctx.swap.status(dummySecretHash)).toNumber()
-            expect(status).to.equal(Status.INITIALIZED)
-        })
-
-        it('should not hold secret', async function() {
-            expect(await ctx.swap.secrets(dummySecretHash)).to.equal(ZERO_BYTES32)
+            expect(result.confirmed).to.equal(false)
         })
 
         it('should decrease Bob\'s token balance', async function() {
@@ -186,16 +158,7 @@ describe('BlendSwap', async function() {
             expect(result.amount).to.be.bignumber.equal(amount)
             expect(result.releaseTime).to.be.bignumber.equal(releaseTime)
             expect(result.fee).to.be.bignumber.equal(fee)
-            expect(result.secretHash).to.equal(dummySecretHash)
-        })
-
-        it('should have HASH_REVEALED status', async function() {
-            const status = (await ctx.swap.status(dummySecretHash)).toNumber()
-            expect(status).to.equal(Status.CONFIRMED)
-        })
-
-        it('should not hold secret', async function() {
-            expect(await ctx.swap.secrets(dummySecretHash)).to.equal(ZERO_BYTES32)
+            expect(result.confirmed).to.equal(true)
         })
 
         it('should decrease Bob\'s token balance', async function() {
@@ -225,25 +188,6 @@ describe('BlendSwap', async function() {
             )
             await ctx.swap.confirmSwap(dummySecretHash, {from: bob})
             await ctx.swap.redeem(dummySecret, {from: alice})
-        })
-
-        it('should hold correct swap info', async function() {
-            const result = await ctx.swap.swaps(dummySecretHash)
-            expect(result.from).to.equal(bob)
-            expect(result.to).to.equal(alice)
-            expect(result.amount).to.be.bignumber.equal(amount)
-            expect(result.releaseTime).to.be.bignumber.equal(releaseTime)
-            expect(result.fee).to.be.bignumber.equal(fee)
-            expect(result.secretHash).to.equal(dummySecretHash)
-        })
-
-        it('should have SECRET_REVEALED status', async function() {
-            const status = (await ctx.swap.status(dummySecretHash)).toNumber()
-            expect(status).to.equal(Status.SECRET_REVEALED)
-        })
-
-        it('should expose secret', async function() {
-            expect(await ctx.swap.secrets(dummySecretHash)).to.equal(dummySecret)
         })
 
         it('should decrease Bob\'s token balance', async function() {
@@ -296,7 +240,7 @@ describe('BlendSwap', async function() {
             await time.increaseTo(releaseTime)
             await expectRevert(
                 ctx.swap.claimRefund(dummySecretHash, {from: bob}),
-                "Wrong status"
+                "Lock does not exists"
             )
         })
 

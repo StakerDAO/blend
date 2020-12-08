@@ -12,8 +12,9 @@ interface LockArguments {
     from: Address
     to: Address
     amount: string
-    lockId: string
     secretHash: string
+    confirmed: boolean
+    fee: string
 }
 
 type CmdlineOptions = Partial<LockArguments>
@@ -32,13 +33,14 @@ async function lock(options: CmdlineOptions) {
     const releaseTime = Math.floor(Date.now() / 1000) + timeout
 
     const amount = Utils.toWei(args.amount)
+    const fee = Utils.toWei(args.fee)
 
     await blend.methods.approve(
-        swapContract.address, amount
+        swapContract.address, amount.add(fee)
     ).send({from: args.from})
 
     await swapContract.methods.lock(
-        args.lockId, args.to, amount, releaseTime, args.secretHash
+        args.to, amount, releaseTime, args.secretHash, args.confirmed, fee
     ).send({from: args.from})
 }
 
@@ -74,13 +76,26 @@ async function makeQuestions(env: BlendEnvironment) {
         },
         {
             type: 'input',
-            name: 'lockId',
-            message: 'Lock id',
+            name: 'secretHash',
+            message: 'Secret hash',
         },
         {
             type: 'input',
-            name: 'secretHash',
-            message: 'Secret hash (set to 0x00 if not revealing)',
+            name: 'confirmed',
+            message: 'Set true if you are not the initiator',
+        },
+        {
+            type: 'input',
+            name: 'fee',
+            message: 'The fee of the swap',
+            validate: async (value: string) => {
+                try {
+                    Utils.toWei(value)
+                    return true
+                } catch (err) {
+                    return `${value} is not a valid fee`
+                }
+            },
         },
     ]
 }
@@ -96,8 +111,9 @@ function register(program: any) {
         .option('--from <address>', 'address to lock tokens from')
         .option('--to <address>', 'address to send tokens to')
         .option('--amount <amount>', 'the amount of tokens to send (e.g., 12.9876)')
-        .option('--lock-id', 'lock id')
         .option('--secret-hash', 'secret hash')
+        .option('--confirmed', 'confirmed or not')
+        .option('--fee <fee>', 'the fee of the swap (e.g., 12.9876)')
         .action(withErrors(lock))
 }
 

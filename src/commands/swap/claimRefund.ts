@@ -10,7 +10,7 @@ import { NetworkName, Address } from '../../types'
 interface ClaimRefundArguments {
     network: NetworkName
     from: Address
-    lockId: string
+    secretHash: string
 }
 
 type CmdlineOptions = Partial<ClaimRefundArguments>
@@ -25,7 +25,7 @@ async function claimRefund(options: CmdlineOptions) {
     const args = await promptIfNeeded(options, questions)
 
     await swapContract.methods.claimRefund(
-        args.lockId
+        args.secretHash
     ).send({from: args.from})
 }
 
@@ -42,8 +42,8 @@ async function makeQuestions(env: BlendEnvironment) {
         },
         {
             type: 'input',
-            name: 'lockId',
-            message: 'Lock id',
+            name: 'secretHash',
+            message: 'Secret hash',
         },
     ]
 }
@@ -53,11 +53,11 @@ function register(program: any) {
         .command('swap-claim-refund')
         .usage('swap-claim-refund')
         .description(
-            'Reveal secret hash'
+            'Claim refund'
         )
         .option('-n, --network <network_name>', 'network to use')
         .option('--from <address>', 'address to claim refund to')
-        .option('--lock-id', 'lock id')
+        .option('--secret-hash', 'secret hash')
         .action(withErrors(claimRefund))
 }
 

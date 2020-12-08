@@ -52,6 +52,7 @@ describe('BlendSwap', async function() {
         expect(await ctx.swap.blend()).to.equal(ctx.blend.address)
     })
 
+    const zeroAddress = '0x0000000000000000000000000000000000000000'
     const dummySecret = '0x1234567812345678123456781234567812345678123456781234567812345678'
     const dummySecretHash = hash(dummySecret)
 
@@ -190,6 +191,11 @@ describe('BlendSwap', async function() {
             await ctx.swap.redeem(dummySecret, {from: alice})
         })
 
+        it('should remove swap from mapping', async function() {
+            const result = await ctx.swap.swaps(dummySecretHash)
+            expect(result.from).to.equal(zeroAddress)
+        })
+
         it('should decrease Bob\'s token balance', async function() {
             const bobBalance = await ctx.blend.balanceOf(bob)
             const expected = toBN(initialBalance).sub(amount.add(fee))
@@ -226,6 +232,8 @@ describe('BlendSwap', async function() {
         it('should refund if claimed before swap confirmation', async function() {
             await time.increaseTo(releaseTime)
             await ctx.swap.claimRefund(dummySecretHash, {from: bob})
+            const result = await ctx.swap.swaps(dummySecretHash)
+            expect(result.from).to.equal(zeroAddress)
         })
 
         it('should refund if claimed before redeem', async function() {

@@ -41,6 +41,13 @@ contract BlendSwap {
     event RedeemEvent(bytes32 indexed secretHash, bytes32 secret);
     event RefundEvent(bytes32 indexed secretHash);
 
+    function ensureLockExists(bytes32 secretHash) internal {
+        require(
+            swaps[secretHash].from != address(0),
+            "Lock does not exist"
+        );
+    }
+
     function lock(
         address to,
         uint256 amount,
@@ -70,10 +77,7 @@ contract BlendSwap {
     }
 
     function confirmSwap(bytes32 secretHash) public {
-        require(
-            swaps[secretHash].from != address(0),
-            "Lock does not exists"
-        );
+        ensureLockExists(secretHash);
 
         require(
             swaps[secretHash].confirmed == false,
@@ -92,14 +96,11 @@ contract BlendSwap {
     function redeem(bytes32 secret) public {
         bytes32 secretHash = sha256(abi.encode(secret));
 
-        require(
-            swaps[secretHash].from != address(0),
-            "Lock does not exists"
-        );
+        ensureLockExists(secretHash);
 
         require(
             swaps[secretHash].confirmed == true,
-            "Lock doesn't confirm"
+            "Lock didn't confirm"
         );
 
         blend.transfer(swaps[secretHash].to, swaps[secretHash].amount + swaps[secretHash].fee);
@@ -108,14 +109,11 @@ contract BlendSwap {
     }
 
     function claimRefund(bytes32 secretHash) public {
+        ensureLockExists(secretHash);
+
         require(
             block.timestamp >= swaps[secretHash].releaseTime,
             "Funds still locked"
-        );
-
-        require(
-            swaps[secretHash].from != address(0),
-            "Lock does not exists"
         );
 
         require(

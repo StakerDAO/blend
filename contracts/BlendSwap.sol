@@ -44,7 +44,7 @@ contract BlendSwap {
     function ensureLockExists(bytes32 secretHash) internal {
         require(
             swaps[secretHash].from != address(0),
-            "Lock does not exist"
+            "Swap not initialized"
         );
     }
 
@@ -81,7 +81,7 @@ contract BlendSwap {
 
         require(
             swaps[secretHash].confirmed == false,
-            "Lock already confirmed"
+            "Confirmed swap"
         );
 
         require(
@@ -100,7 +100,7 @@ contract BlendSwap {
 
         require(
             swaps[secretHash].confirmed == true,
-            "Lock didn't confirm"
+            "Unconfirmed swap"
         );
 
         blend.transfer(swaps[secretHash].to, swaps[secretHash].amount + swaps[secretHash].fee);

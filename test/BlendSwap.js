@@ -248,7 +248,7 @@ describe('BlendSwap', async function() {
             await time.increaseTo(releaseTime)
             await expectRevert(
                 ctx.swap.claimRefund(dummySecretHash, {from: bob}),
-                "Lock does not exists"
+                "Swap not initialized"
             )
         })
 

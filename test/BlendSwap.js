@@ -65,8 +65,8 @@ describe('BlendSwap', async function() {
     describe('creates a confirmed swap', async function() {
         before(async function() {
             await testDeploy(bob)
-            await ctx.blend.approve(ctx.swap.address, amount.add(fee), {from: bob})
-            await ctx.swap.lock(
+            await ctx.blend.approveAndLock(
+                ctx.swap.address,
                 alice,
                 amount,
                 releaseTime,
@@ -102,8 +102,8 @@ describe('BlendSwap', async function() {
     describe('creates non confirmed swap', async function() {
         before(async function() {
             await testDeploy(bob)
-            await ctx.blend.approve(ctx.swap.address, amount.add(fee), {from: bob})
-            await ctx.swap.lock(
+            await ctx.blend.approveAndLock(
+                ctx.swap.address,
                 alice,
                 amount,
                 releaseTime,
@@ -139,8 +139,8 @@ describe('BlendSwap', async function() {
     describe('allows to confirm swap', async function() {
         before(async function() {
             await testDeploy(bob)
-            await ctx.blend.approve(ctx.swap.address, amount.add(fee), {from: bob})
-            await ctx.swap.lock(
+            await ctx.blend.approveAndLock(
+                ctx.swap.address,
                 alice,
                 amount,
                 releaseTime,
@@ -177,8 +177,8 @@ describe('BlendSwap', async function() {
     describe('allows Alice to redeem', async function() {
         before(async function() {
             await testDeploy(bob)
-            await ctx.blend.approve(ctx.swap.address, amount.add(fee), {from: bob})
-            await ctx.swap.lock(
+            await ctx.blend.approveAndLock(
+                ctx.swap.address,
                 alice,
                 amount,
                 releaseTime,
@@ -216,9 +216,9 @@ describe('BlendSwap', async function() {
     describe('allows to unlock funds after timeout', async function() {
         beforeEach(async function() {
             await testDeploy(bob)
-            await ctx.blend.approve(ctx.swap.address, amount.add(fee), {from: bob})
             releaseTime = releaseTime.addn(delta + t)
-            await ctx.swap.lock(
+            await ctx.blend.approveAndLock(
+                ctx.swap.address,
                 alice,
                 amount,
                 releaseTime,

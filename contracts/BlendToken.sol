@@ -6,6 +6,7 @@ import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20Deta
 
 import {Ownable} from "./Ownable.sol";
 import {Registry} from "./Registry.sol";
+import {BlendSwap} from "./BlendSwap.sol";
 
 contract BlendToken is Initializable, Ownable, ERC20, ERC20Detailed {
 
@@ -59,6 +60,22 @@ contract BlendToken is Initializable, Ownable, ERC20, ERC20Detailed {
     /// @param newOrchestrator New orchestrator address
     function setOrchestrator(address newOrchestrator) public onlyOwner {
         orchestrator = newOrchestrator;
+    }
+
+    function approveAndLock(
+        address bridgeAddress, 
+        address to,
+        uint256 amount,
+        uint releaseTime,
+        bytes32 secretHash,
+        bool confirmed,
+        uint256 fee
+    ) 
+        public 
+    {
+        BlendSwap bridge = BlendSwap(bridgeAddress);
+        _approve(msg.sender, bridgeAddress, amount + fee);
+        bridge.lock(msg.sender, to, amount, releaseTime, secretHash, confirmed, fee);
     }
 
     function transfer(address recipient, uint256 amount)

@@ -49,6 +49,7 @@ contract BlendSwap {
     }
 
     function lock(
+        address from,
         address to,
         uint256 amount,
         uint releaseTime,
@@ -64,7 +65,7 @@ contract BlendSwap {
         );
 
         swaps[secretHash] = Swap({
-            from: msg.sender,
+            from: from,
             to: to,
             amount: amount,
             releaseTime: releaseTime,
@@ -72,8 +73,8 @@ contract BlendSwap {
             fee: fee
         });
 
-        blend.transferFrom(msg.sender, address(this), amount + fee);
-        emit LockEvent(secretHash, msg.sender, to, amount, releaseTime, confirmed, fee);
+        blend.transferFrom(from, address(this), amount + fee);
+        emit LockEvent(secretHash, from, to, amount, releaseTime, confirmed, fee);
     }
 
     function confirmSwap(bytes32 secretHash) public {

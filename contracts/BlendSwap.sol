@@ -143,40 +143,45 @@ contract BlendSwap {
 
         ensureLockExists(secretHash);
 
+        Swap memory swap = swaps[secretHash];
+
         require(
-            swaps[secretHash].confirmed == true,
+            swap.confirmed,
             "Unconfirmed swap"
         );
 
-        bool transferResult = blend.transfer(
-            swaps[secretHash].to,
-            swaps[secretHash].amount + swaps[secretHash].fee
-        );
-        ensureTransferSuccess(transferResult);
 
         delete swaps[secretHash];
+
+        bool transferResult = blend.transfer(swap.to, swap.amount + swap.fee);
+        ensureTransferSuccess(transferResult);
+
         emit RedeemEvent(secretHash, secret);
     }
 
     function claimRefund(bytes32 secretHash) public {
         ensureLockExists(secretHash);
 
+        Swap memory swap = swaps[secretHash];
+
         require(
-            block.timestamp >= swaps[secretHash].releaseTime,
+            block.timestamp >= swap.releaseTime,
             "Funds still locked"
         );
 
         require(
-            msg.sender == swaps[secretHash].from,
+            msg.sender == swap.from,
             "Sender is not the initiator"
         );
 
-        bool transferResult = blend.transfer(swaps[secretHash].to, swaps[secretHash].fee);
-        ensureTransferSuccess(transferResult);
-        transferResult = blend.transfer(swaps[secretHash].from, swaps[secretHash].amount);
-        ensureTransferSuccess(transferResult);
 
         delete swaps[secretHash];
+
+        bool transferResult = blend.transfer(swap.to, swap.fee);
+        ensureTransferSuccess(transferResult);
+        transferResult = blend.transfer(swap.from, swap.amount);
+        ensureTransferSuccess(transferResult);
+
         emit RefundEvent(secretHash);
     }
 }

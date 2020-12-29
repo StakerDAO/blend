@@ -56,6 +56,13 @@ contract BlendSwap {
         );
     }
 
+    function ensureTransferSuccess(bool transferResult) internal {
+        require(
+            transferResult,
+            "Transfer was failed"
+        );
+    }
+
     function lockBody(
         address from,
         address to,
@@ -64,7 +71,7 @@ contract BlendSwap {
         bytes32 secretHash,
         bool confirmed,
         uint256 fee
-    ) 
+    )
         internal
     {
         require(
@@ -81,7 +88,9 @@ contract BlendSwap {
             fee: fee
         });
 
-        blend.transferFrom(from, address(this), amount + fee);
+        bool transferResult = blend.transferFrom(from, address(this), amount + fee);
+        ensureTransferSuccess(transferResult);
+
         emit LockEvent(secretHash, from, to, amount, releaseTime, confirmed, fee);
     }
 
@@ -92,7 +101,7 @@ contract BlendSwap {
         bytes32 secretHash,
         bool confirmed,
         uint256 fee
-    ) 
+    )
         public
     {
         lockBody(msg.sender, to, amount, releaseTime, secretHash, confirmed, fee);
@@ -139,7 +148,12 @@ contract BlendSwap {
             "Unconfirmed swap"
         );
 
-        blend.transfer(swaps[secretHash].to, swaps[secretHash].amount + swaps[secretHash].fee);
+        bool transferResult = blend.transfer(
+            swaps[secretHash].to,
+            swaps[secretHash].amount + swaps[secretHash].fee
+        );
+        ensureTransferSuccess(transferResult);
+
         delete swaps[secretHash];
         emit RedeemEvent(secretHash, secret);
     }
@@ -157,8 +171,11 @@ contract BlendSwap {
             "Sender is not the initiator"
         );
 
-        blend.transfer(swaps[secretHash].to, swaps[secretHash].fee);
-        blend.transfer(swaps[secretHash].from, swaps[secretHash].amount);
+        bool transferResult = blend.transfer(swaps[secretHash].to, swaps[secretHash].fee);
+        ensureTransferSuccess(transferResult);
+        transferResult = blend.transfer(swaps[secretHash].from, swaps[secretHash].amount);
+        ensureTransferSuccess(transferResult);
+
         delete swaps[secretHash];
         emit RefundEvent(secretHash);
     }

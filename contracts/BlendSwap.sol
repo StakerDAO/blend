@@ -79,6 +79,11 @@ contract BlendSwap {
             "Lock with this secretHash already exists"
         );
 
+        require(
+            block.timestamp + 10 minutes <= releaseTime,
+            "Release time in the past"
+        );
+
         swaps[secretHash] = Swap({
             from: from,
             to: to,

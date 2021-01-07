@@ -1,12 +1,5 @@
 pragma solidity^0.5.13;
 
-// This feature is considered mature enough to not cause any
-// security issues, so the possible warning should be ignored.
-// As per solidity developers, "The main reason it is marked
-// experimental is because it causes higher gas usage."
-// See: https://github.com/ethereum/solidity/issues/5397
-pragma experimental ABIEncoderV2;
-
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/math/SafeMath.sol";
 

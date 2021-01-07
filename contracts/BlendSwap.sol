@@ -8,12 +8,15 @@ pragma solidity^0.5.13;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-ethereum-package/contracts/math/SafeMath.sol";
 
 contract BlendSwap {
 
     mapping (bytes32 => Swap) public swaps;
 
     IERC20 public blend;
+
+    using SafeMath for uint256;
 
     struct Swap {
         address from;
@@ -93,7 +96,7 @@ contract BlendSwap {
             fee: fee
         });
 
-        bool transferResult = blend.transferFrom(from, address(this), amount + fee);
+        bool transferResult = blend.transferFrom(from, address(this), amount.add(fee));
         ensureTransferSuccess(transferResult);
 
         emit LockEvent(secretHash, from, to, amount, releaseTime, confirmed, fee);
@@ -158,7 +161,7 @@ contract BlendSwap {
 
         delete swaps[secretHash];
 
-        bool transferResult = blend.transfer(swap.to, swap.amount + swap.fee);
+        bool transferResult = blend.transfer(swap.to, swap.amount.add(swap.fee));
         ensureTransferSuccess(transferResult);
 
         emit RedeemEvent(secretHash, secret);

@@ -21,6 +21,11 @@ contract BlendSwap {
     }
 
     constructor(address blend_) public {
+        require(
+            blend_ != address(0),
+            "Zero address"
+        );
+
         blend = IERC20(blend_);
     }
 

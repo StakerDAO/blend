@@ -41,11 +41,48 @@ contract BlendSwap {
     event RedeemEvent(bytes32 indexed secretHash, bytes32 secret);
     event RefundEvent(bytes32 indexed secretHash);
 
+    modifier onlyBlend() {
+        require(
+            msg.sender == address(blend),
+            "Unauthorized: sender is not the Blend contract"
+        );
+        _;
+    }
+
     function ensureLockExists(bytes32 secretHash) internal {
         require(
             swaps[secretHash].from != address(0),
             "Swap not initialized"
         );
+    }
+
+    function lockBody(
+        address from,
+        address to,
+        uint256 amount,
+        uint releaseTime,
+        bytes32 secretHash,
+        bool confirmed,
+        uint256 fee
+    ) 
+        internal
+    {
+        require(
+            swaps[secretHash].from == address(0),
+            "Lock with this secretHash already exists"
+        );
+
+        swaps[secretHash] = Swap({
+            from: from,
+            to: to,
+            amount: amount,
+            releaseTime: releaseTime,
+            confirmed: confirmed,
+            fee: fee
+        });
+
+        blend.transferFrom(from, address(this), amount + fee);
+        emit LockEvent(secretHash, from, to, amount, releaseTime, confirmed, fee);
     }
 
     function lock(
@@ -55,25 +92,24 @@ contract BlendSwap {
         bytes32 secretHash,
         bool confirmed,
         uint256 fee
-    )
+    ) 
         public
     {
-        require(
-            swaps[secretHash].from == address(0),
-            "Lock with this secretHash already exists"
-        );
+        lockBody(msg.sender, to, amount, releaseTime, secretHash, confirmed, fee);
+    }
 
-        swaps[secretHash] = Swap({
-            from: msg.sender,
-            to: to,
-            amount: amount,
-            releaseTime: releaseTime,
-            confirmed: confirmed,
-            fee: fee
-        });
-
-        blend.transferFrom(msg.sender, address(this), amount + fee);
-        emit LockEvent(secretHash, msg.sender, to, amount, releaseTime, confirmed, fee);
+    function lockFrom(
+        address from,
+        address to,
+        uint256 amount,
+        uint releaseTime,
+        bytes32 secretHash,
+        bool confirmed,
+        uint256 fee
+    )
+        public onlyBlend
+    {
+        lockBody(from, to, amount, releaseTime, secretHash, confirmed, fee);
     }
 
     function confirmSwap(bytes32 secretHash) public {

@@ -1,22 +1,17 @@
 pragma solidity^0.5.13;
 
-// This feature is considered mature enough to not cause any
-// security issues, so the possible warning should be ignored.
-// As per solidity developers, "The main reason it is marked
-// experimental is because it causes higher gas usage."
-// See: https://github.com/ethereum/solidity/issues/5397
-pragma experimental ABIEncoderV2;
-
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-ethereum-package/contracts/math/SafeMath.sol";
 
 contract BlendSwap {
 
-    mapping (bytes32 => Swap) public swaps;
+    mapping (bytes32 => mapping (address => Swap)) public swaps;
 
     IERC20 public blend;
 
+    using SafeMath for uint256;
+
     struct Swap {
-        address from;
         address to;
         uint amount;
         uint releaseTime;
@@ -25,12 +20,17 @@ contract BlendSwap {
     }
 
     constructor(address blend_) public {
+        require(
+            blend_ != address(0),
+            "Zero address"
+        );
+
         blend = IERC20(blend_);
     }
 
     event LockEvent(
         bytes32 indexed secretHash,
-        address from,
+        address indexed from,
         address to,
         uint256 amount,
         uint releaseTime,
@@ -49,10 +49,17 @@ contract BlendSwap {
         _;
     }
 
-    function ensureLockExists(bytes32 secretHash) internal {
+    function ensureLockExists(bytes32 secretHash, address sender) internal {
         require(
-            swaps[secretHash].from != address(0),
+            swaps[secretHash][sender].to != address(0),
             "Swap not initialized"
+        );
+    }
+
+    function ensureTransferSuccess(bool transferResult) internal {
+        require(
+            transferResult,
+            "Transfer was failed"
         );
     }
 
@@ -64,16 +71,20 @@ contract BlendSwap {
         bytes32 secretHash,
         bool confirmed,
         uint256 fee
-    ) 
+    )
         internal
     {
         require(
-            swaps[secretHash].from == address(0),
+            swaps[secretHash][from].to == address(0),
             "Lock with this secretHash already exists"
         );
 
-        swaps[secretHash] = Swap({
-            from: from,
+        require(
+            block.timestamp + 10 minutes <= releaseTime,
+            "Release time in the past"
+        );
+
+        swaps[secretHash][from] = Swap({
             to: to,
             amount: amount,
             releaseTime: releaseTime,
@@ -81,7 +92,9 @@ contract BlendSwap {
             fee: fee
         });
 
-        blend.transferFrom(from, address(this), amount + fee);
+        bool transferResult = blend.transferFrom(from, address(this), amount.add(fee));
+        ensureTransferSuccess(transferResult);
+
         emit LockEvent(secretHash, from, to, amount, releaseTime, confirmed, fee);
     }
 
@@ -92,7 +105,7 @@ contract BlendSwap {
         bytes32 secretHash,
         bool confirmed,
         uint256 fee
-    ) 
+    )
         public
     {
         lockBody(msg.sender, to, amount, releaseTime, secretHash, confirmed, fee);
@@ -113,53 +126,56 @@ contract BlendSwap {
     }
 
     function confirmSwap(bytes32 secretHash) public {
-        ensureLockExists(secretHash);
+        ensureLockExists(secretHash, msg.sender);
 
         require(
-            swaps[secretHash].confirmed == false,
+            !swaps[secretHash][msg.sender].confirmed,
             "Confirmed swap"
         );
 
-        require(
-            msg.sender == swaps[secretHash].from,
-            "Sender is not the initiator"
-        );
-
-        swaps[secretHash].confirmed = true;
+        swaps[secretHash][msg.sender].confirmed = true;
         emit ConfirmEvent(secretHash);
     }
 
-    function redeem(bytes32 secret) public {
+    function redeem(bytes32 secret, address lockSender) public {
         bytes32 secretHash = sha256(abi.encode(secret));
 
-        ensureLockExists(secretHash);
+        ensureLockExists(secretHash, lockSender);
+
+        Swap memory swap = swaps[secretHash][lockSender];
 
         require(
-            swaps[secretHash].confirmed == true,
+            swap.confirmed,
             "Unconfirmed swap"
         );
 
-        blend.transfer(swaps[secretHash].to, swaps[secretHash].amount + swaps[secretHash].fee);
-        delete swaps[secretHash];
+
+        delete swaps[secretHash][lockSender];
+
+        bool transferResult = blend.transfer(swap.to, swap.amount.add(swap.fee));
+        ensureTransferSuccess(transferResult);
+
         emit RedeemEvent(secretHash, secret);
     }
 
     function claimRefund(bytes32 secretHash) public {
-        ensureLockExists(secretHash);
+        ensureLockExists(secretHash, msg.sender);
+
+        Swap memory swap = swaps[secretHash][msg.sender];
 
         require(
-            block.timestamp >= swaps[secretHash].releaseTime,
+            block.timestamp >= swap.releaseTime,
             "Funds still locked"
         );
 
-        require(
-            msg.sender == swaps[secretHash].from,
-            "Sender is not the initiator"
-        );
 
-        blend.transfer(swaps[secretHash].to, swaps[secretHash].fee);
-        blend.transfer(swaps[secretHash].from, swaps[secretHash].amount);
-        delete swaps[secretHash];
+        delete swaps[secretHash][msg.sender];
+
+        bool transferResult = blend.transfer(swap.to, swap.fee);
+        ensureTransferSuccess(transferResult);
+        transferResult = blend.transfer(msg.sender, swap.amount);
+        ensureTransferSuccess(transferResult);
+
         emit RefundEvent(secretHash);
     }
 }

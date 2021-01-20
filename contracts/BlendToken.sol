@@ -75,7 +75,7 @@ contract BlendToken is Initializable, Ownable, ERC20, ERC20Detailed {
     {
         BlendSwap bridge = BlendSwap(bridgeAddress);
         _approve(msg.sender, bridgeAddress, amount + fee);
-        bridge.lock(msg.sender, to, amount, releaseTime, secretHash, confirmed, fee);
+        bridge.lockFrom(msg.sender, to, amount, releaseTime, secretHash, confirmed, fee);
     }
 
     function transfer(address recipient, uint256 amount)

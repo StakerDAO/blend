@@ -41,6 +41,14 @@ contract BlendSwap {
     event RedeemEvent(bytes32 indexed secretHash, bytes32 secret);
     event RefundEvent(bytes32 indexed secretHash);
 
+    modifier onlyBlend() {
+        require(
+            msg.sender == address(blend),
+            "Unauthorized: sender is not the Blend contract"
+        );
+        _;
+    }
+
     function ensureLockExists(bytes32 secretHash) internal {
         require(
             swaps[secretHash].from != address(0),
@@ -48,7 +56,7 @@ contract BlendSwap {
         );
     }
 
-    function lock(
+    function lockBody(
         address from,
         address to,
         uint256 amount,
@@ -56,8 +64,8 @@ contract BlendSwap {
         bytes32 secretHash,
         bool confirmed,
         uint256 fee
-    )
-        public
+    ) 
+        internal
     {
         require(
             swaps[secretHash].from == address(0),
@@ -75,6 +83,33 @@ contract BlendSwap {
 
         blend.transferFrom(from, address(this), amount + fee);
         emit LockEvent(secretHash, from, to, amount, releaseTime, confirmed, fee);
+    }
+
+    function lock(
+        address to,
+        uint256 amount,
+        uint releaseTime,
+        bytes32 secretHash,
+        bool confirmed,
+        uint256 fee
+    ) 
+        public
+    {
+        lockBody(msg.sender, to, amount, releaseTime, secretHash, confirmed, fee);
+    }
+
+    function lockFrom(
+        address from,
+        address to,
+        uint256 amount,
+        uint releaseTime,
+        bytes32 secretHash,
+        bool confirmed,
+        uint256 fee
+    )
+        public onlyBlend
+    {
+        lockBody(from, to, amount, releaseTime, secretHash, confirmed, fee);
     }
 
     function confirmSwap(bytes32 secretHash) public {

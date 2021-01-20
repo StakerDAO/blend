@@ -136,6 +136,48 @@ describe('BlendSwap', async function() {
         })
     })
 
+    describe('allows to lock without blend', async function() {
+        before(async function() {
+            await testDeploy(bob)
+        })
+
+        it('should hold correct swap info', async function() {
+            await ctx.blend.approve(ctx.swap.address, amount.add(fee), {from: bob})
+            await ctx.swap.lock(
+                alice,
+                amount,
+                releaseTime,
+                dummySecretHash,
+                true,
+                fee,
+                {from: bob}
+            )
+            const result = await ctx.swap.swaps(dummySecretHash)
+            expect(result.from).to.equal(bob)
+            expect(result.to).to.equal(alice)
+            expect(result.amount).to.be.bignumber.equal(amount)
+            expect(result.releaseTime).to.be.bignumber.equal(releaseTime)
+            expect(result.fee).to.be.bignumber.equal(fee)
+            expect(result.confirmed).to.equal(true)
+        })
+
+        it('should reject lockFrom call not from blend', async function() {
+            await expectRevert(
+                ctx.swap.lockFrom(
+                    ctx.swap.address,
+                    alice,
+                    amount,
+                    releaseTime,
+                    dummySecretHash,
+                    true,
+                    fee,
+                    {from: bob}
+                ),
+                "Unauthorized: sender is not the Blend contract"
+            )
+        })
+    })
+
     describe('allows to confirm swap', async function() {
         before(async function() {
             await testDeploy(bob)

@@ -37,9 +37,9 @@ contract BlendSwap {
         bool confirmed,
         uint256 fee
     );
-    event ConfirmEvent(bytes32 indexed secretHash);
-    event RedeemEvent(bytes32 indexed secretHash, bytes32 secret);
-    event RefundEvent(bytes32 indexed secretHash);
+    event ConfirmEvent(bytes32 indexed secretHash, address indexed from);
+    event RedeemEvent(bytes32 indexed secretHash, address indexed from, bytes32 secret);
+    event RefundEvent(bytes32 indexed secretHash, address indexed from);
 
     modifier onlyBlend() {
         require(
@@ -134,7 +134,7 @@ contract BlendSwap {
         );
 
         swaps[secretHash][msg.sender].confirmed = true;
-        emit ConfirmEvent(secretHash);
+        emit ConfirmEvent(secretHash, msg.sender);
     }
 
     function redeem(bytes32 secret, address lockSender) public {
@@ -155,7 +155,7 @@ contract BlendSwap {
         bool transferResult = blend.transfer(swap.to, swap.amount.add(swap.fee));
         ensureTransferSuccess(transferResult);
 
-        emit RedeemEvent(secretHash, secret);
+        emit RedeemEvent(secretHash, msg.sender, secret);
     }
 
     function claimRefund(bytes32 secretHash) public {
@@ -176,6 +176,6 @@ contract BlendSwap {
         transferResult = blend.transfer(msg.sender, swap.amount);
         ensureTransferSuccess(transferResult);
 
-        emit RefundEvent(secretHash);
+        emit RefundEvent(secretHash, msg.sender);
     }
 }

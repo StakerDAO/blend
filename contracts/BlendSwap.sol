@@ -155,7 +155,7 @@ contract BlendSwap {
         bool transferResult = blend.transfer(swap.to, swap.amount.add(swap.fee));
         ensureTransferSuccess(transferResult);
 
-        emit RedeemEvent(secretHash, msg.sender, secret);
+        emit RedeemEvent(secretHash, lockSender, secret);
     }
 
     function claimRefund(bytes32 secretHash) public {

@@ -64,7 +64,7 @@ async function registerTenderAddressBatch(
             message: 'File with tender addresses to register',
         },
         {
-            type: 'number',
+            type: 'string',
             name: 'gasPrice',
             message: 'Gas price (in GWei)',
             default: Utils.fromWei(env.txParams.gasPrice.toString(), 'gwei')

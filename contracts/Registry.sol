@@ -184,6 +184,24 @@ contract Registry is Initializable, Ownable {
         _tenderAddresses[tenderAddress] = true;
     }
 
+    /// @notice Adds a batch of addresses to the set of registered
+    ///         tender addresses
+    /// @param tenderAddresses A batch of tender addresses to register
+    function registerTenderAddressBatch(address[] memory tenderAddresses)
+        public
+        onlyBackend
+    {
+        uint len = tenderAddresses.length;
+        for (uint i = 0; i < len; ++i) {
+            address tenderAddress = tenderAddresses[i];
+            require(
+                _tenderAddresses[tenderAddress] == false,
+                "Tender address already registered"
+            );
+            _tenderAddresses[tenderAddress] = true;
+        }
+    }
+
     /// @notice Returns whether `tenderAddress` was registered by
     ///         calling `registry.registerTenderAddress(...)`
     function isTenderAddress(address tenderAddress)

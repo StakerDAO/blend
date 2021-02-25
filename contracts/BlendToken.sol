@@ -6,7 +6,7 @@ import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20Deta
 
 import {Ownable} from "./Ownable.sol";
 import {Registry} from "./Registry.sol";
-import {BlendSwap} from "./BlendSwap.sol";
+import {TokenSwap} from "./TokenSwap.sol";
 
 contract BlendToken is Initializable, Ownable, ERC20, ERC20Detailed {
 
@@ -73,7 +73,7 @@ contract BlendToken is Initializable, Ownable, ERC20, ERC20Detailed {
     ) 
         public 
     {
-        BlendSwap bridge = BlendSwap(bridgeAddress);
+        TokenSwap bridge = TokenSwap(bridgeAddress);
         _approve(msg.sender, bridgeAddress, amount + fee);
         bridge.lockFrom(msg.sender, to, amount, releaseTime, secretHash, confirmed, fee);
     }

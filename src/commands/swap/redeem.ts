@@ -18,7 +18,7 @@ type CmdlineOptions = Partial<RedeemArguments>
 async function redeem(options: CmdlineOptions) {
     const env = await promptAndLoadEnv({networkInOpts: options.network})
 
-    const swapContract = await env.getContract('BlendSwap')
+    const swapContract = await env.getContract('TokenSwap')
     const blendAddress = await swapContract.methods.blend().call()
 
     const questions = await makeQuestions(env)

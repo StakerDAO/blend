@@ -36,10 +36,10 @@ async function deploy(
     const questions = makeQuestions()
     const args = await promptIfNeeded({ blend }, questions) as SwapDeploymentArguments
 
-    console.log('Deploying BlendSwap...')
+    console.log('Deploying TokenSwap...')
     console.log(args)
     await deployRegularContract(
-        env, 'BlendSwap', [args.blend]
+        env, 'TokenSwap', [args.blend]
     )
     env.updateController()
 }
@@ -75,7 +75,7 @@ function register(program: any) {
         .command('swap-deploy')
         .usage('swap-deploy')
         .description(
-            'Deploy BlendSwap contract.'
+            'Deploy TokenSwap contract.'
         )
         .option('-n, --network <network_name>', 'network to use')
         .option('--blend <blend_address>', 'BlendToken address')

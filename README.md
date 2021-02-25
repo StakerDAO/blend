@@ -102,6 +102,6 @@ After these steps, you can send BLND token just like you send Ether or other ERC
 
 ### With _OpenZeppelin_ CLI
 
-_OpenZeppelin_ is supplied with pretty decent CLI which is capable of interacting with any ethereum contracts and have great UX.
+_OpenZeppelin_ is supplied with pretty decent CLI which is capable of interacting with any ethereum contracts and has great UX.
 
 To run _OpenZeppelin_ CLI you can use `npx oz` command. `npx oz call` command would call function name specified interactively and `npx oz send-tx` would also be helpful for sending transactions.

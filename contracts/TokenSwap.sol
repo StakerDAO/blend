@@ -31,7 +31,7 @@ contract TokenSwap {
     event LockEvent(
         bytes32 indexed secretHash,
         address indexed from,
-        address to,
+        address indexed to,
         uint256 amount,
         uint releaseTime,
         bool confirmed,

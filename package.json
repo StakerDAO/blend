@@ -18,7 +18,7 @@
   "dependencies": {
     "@ledgerhq/web3-subprovider": "^5.13.1",
     "@openzeppelin/cli": "^2.8.1",
-    "@openzeppelin/contracts": "^2.5.0",
+    "@openzeppelin/contracts": "^4.7.2",
     "@openzeppelin/contracts-ethereum-package": "^2.5.0",
     "@openzeppelin/upgrades": "^2.8.0",
     "@truffle/hdwallet-provider": "^1.1.0",
